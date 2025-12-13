@@ -7,6 +7,10 @@
 ![License](https://img.shields.io/badge/license-Proprietary-orange)
 ![Status](https://img.shields.io/badge/status-active-success)
 
+> ⚠️ **Versions actuelles** :    
+> - 🔌 **Hardware V1.4** (13/12/2025) - TDA7439 3-band EQ + Loudness + Spatial  
+> - 💾 **Firmware V1.3** (13/12/2025) - Compatible Hardware V1.3 uniquement, **V1.4 en développement**
+
 ---
 
 ## 📌 Compatibilité versions
@@ -14,32 +18,12 @@
 | Hardware | Firmware | Statut | Notes |
 |----------|----------|--------|-------|
 | **V1.4** | **V1.3** | ⚠️ **Partiel** | TDA7439 non supporté, utiliser firmware V1.4 (en dev) |
-| **V1.3** | **V1.3** | ✅ **OK** | Pleinement compatible (PT2314/MCP4261) |
-| **V1.2** | **V1.3** | ⚠️ **Partiel** | Manque préampli phono, encodeur, OLED |
-| **V1.1** | **V1.0-V1.2** | ❌ **Non** | Architecture différente |
+| **V1.3** | **V1.3** | ✅ **Compatible** | Pleinement fonctionnel (PT2314/MCP4261) |
 
-### ⚙️ **Configuration actuelle recommandée**
+### ⚙️ **Configuration recommandée**
 
-Pour un système fonctionnel **immédiatement** : 
 - ✅ **Hardware V1.3** + **Firmware V1.3** = 100% fonctionnel
-- 🔄 **Hardware V1.4** + **Firmware V1.4** = En développement (TDA7439 support en cours)
-
-### 🔜 **Firmware V1.4 - Roadmap**
-
-- [ ] Support TDA7439 I2C (remplace PT2314)
-- [ ] Suppression code MCP4261 (volume géré par TDA7439)
-- [ ] Ajout presets 8 positions (Cinema, Live)
-- [ ] Loudness automatique
-- [ ] Spatial control
-- [ ] Mise à jour commandes série
-
-📅 **Sortie estimée** :  Fin décembre 2025
-
----
-
-> ⚠️ **Versions actuelles** :   
-> - 🔌 **Hardware V1.4** (13/12/2025) - TDA7439 3-band EQ  
-> - 💾 **Firmware V1.3** (13/12/2025) - Compatible V1.3 hardware, **V1.4 en cours**
+- 🔄 **Hardware V1.4** + **Firmware V1.4** = En développement (sortie fin décembre 2025)
 
 ---
 
@@ -50,16 +34,16 @@ Pour un système fonctionnel **immédiatement** :
   - 🔵 Bluetooth LDAC / aptX HD (BTM525 QCC5125)
   - 🎧 AUX 3.5mm stéréo
   - 🎼 Phono MM (préampli RIAA OPA2134)
-- **🆕 Égaliseur 3 bandes** :   TDA7439 DIP-30
-  - Bass / Mid / Treble :  ±14dB (pas de 2dB)
-  - 8 presets :  Flat, Bass+, Vocal, Rock, Jazz, Cinema, Live, Custom
+- **🆕 Égaliseur 3 bandes** :    TDA7439 DIP-30 *(Hardware V1.4)*
+  - Bass / Mid / Treble :   ±14dB (pas de 2dB)
+  - 8 presets :   Flat, Bass+, Vocal, Rock, Jazz, Cinema, Live, Custom
   - Loudness automatique (compensation Fletcher-Munson)
   - Effet Spatial/Surround (élargissement stéréo)
-- **Volume** :  Contrôle intégré TDA7439 (0 à -47dB + mute)
-- **Gain d'entrée** :  Ajustable 0-30dB par logiciel
-- **Contrôle** : Encodeur rotatif + OLED 128×64 + Télécommande IR
-- **Alimentation** :   Batterie LiPo 6S (18-25V) avec BMS + sécurité 5 niveaux
-- **Autonomie** : 4-6h @ volume moyen
+- **Volume** :   Contrôle intégré TDA7439 (0 à -47dB + mute) *(V1.4)* ou MCP4261 *(V1.3)*
+- **Gain d'entrée** :   Ajustable 0-30dB par logiciel *(V1.4)*
+- **Contrôle** :  Encodeur rotatif + OLED 128×64 + Télécommande IR
+- **Alimentation** :    Batterie LiPo 6S (18-25V) avec BMS + sécurité 5 niveaux
+- **Autonomie** :  4-6h @ volume moyen
 - **THD+N** : < 0,01% @ 1W (chaîne complète)
 - **SNR** : > 110dB (ampli), > 90dB (TDA7439), > 65dB (phono)
 
@@ -70,11 +54,13 @@ Pour un système fonctionnel **immédiatement** :
 ```
 ampli-audiophile-portable/
 ├── docs/                       # 📚 Documentation technique
-│   ├── Hardware_V1_3.md       # Schéma électronique complet, pinouts, BOM
+│   ├── Hardware_V1_4.md       # ⭐ Version actuelle (TDA7439)
+│   ├── Hardware_V1_3.md       # 📦 Archive (PT2314)
 │   ├── Breakout_Box_V1.md     # Outil de test/debug
 │   └── README.md
 ├── firmware/                   # 💾 Firmware ESP32-S3
-│   ├── Ampli_V1_3.ino         # Code Arduino V1.3
+│   ├── Ampli_V1_3.ino         # ✅ Code Arduino V1.3 (stable)
+│   ├── Ampli_V1_4.ino         # 🔄 V1.4 (en développement)
 │   └── README.md
 ├── kicad/                      # 🔌 Fichiers PCB KiCad (à venir)
 ├── .gitignore
@@ -85,6 +71,60 @@ ampli-audiophile-portable/
 ---
 
 ## 🚀 Démarrage rapide
+
+### **1️⃣ Matériel requis**
+
+| Version | BOM | Documentation |
+|---------|-----|---------------|
+| **V1.4** (actuelle) | ~98€ | [Hardware_V1_4.md](docs/Hardware_V1_4.md) |
+| **V1.3** (stable) | ~96€ | [Hardware_V1_3.md](docs/Hardware_V1_3.md) |
+
+Composants clés :
+- ESP32-S3-WROOM-1-N8R8
+- MA12070 (ampli Class-D)
+- **TDA7439** (V1.4) ou **PT2314 + MCP4261** (V1.3)
+- BTM525 (Bluetooth LDAC)
+- PCM5102A (DAC I2S)
+- OPA2134 (préampli phono + buffers)
+- BMS 6S 20A
+
+### **2️⃣ Firmware**
+
+#### ⚠️ **IMPORTANT - Choisir la bonne version**
+
+| Votre hardware | Firmware à utiliser | Fichier |
+|----------------|---------------------|---------|
+| **V1.4** (TDA7439) | 🔄 **V1.4** (en dev) | `firmware/Ampli_V1_4.ino` (à venir) |
+| **V1.3** (PT2314) | ✅ **V1.3** (stable) | `firmware/Ampli_V1_3.ino` |
+
+#### 📥 **Installation**
+
+1. Installer [Arduino IDE](https://www.arduino.cc/en/software) + ESP32 Core
+2. Installer les bibliothèques (voir [firmware/README.md](firmware/README.md))
+3. Ouvrir le fichier `.ino` correspondant à votre hardware
+4. Sélectionner **ESP32S3 Dev Module**
+5. **Upload** 🚀
+
+### **3️⃣ Assemblage**
+
+Architecture **bi-carte** :
+- **Carte 1** (80×100mm) : Puissance (BMS, alimentation, MA12070, HP)
+- **Carte 2** (80×120mm) : Signal/Contrôle (ESP32, BT, DAC, EQ, préampli phono)
+- **Liaison** : Nappe JST XH 14 pins
+
+Voir [docs/Hardware_V1_4.md](docs/Hardware_V1_4.md) section **Architecture bi-carte**. 
+
+---
+
+## 📖 Documentation
+
+| Document | Description | Statut |
+|----------|-------------|--------|
+| [**Hardware V1.4**](docs/Hardware_V1_4.md) | ⭐ Version actuelle - TDA7439 3-band EQ, Loudness, Spatial | ✅ Actif |
+| [**Hardware V1.3**](docs/Hardware_V1_3.md) | Version précédente (PT2314 2-band) | 📦 Archive |
+| [**Breakout Box V1**](docs/Breakout_Box_V1.md) | Outil de test (réduit debug 2h→15min) | ✅ Actif |
+| [**Firmware V1.3**](firmware/README.md) | Code ESP32-S3 pour Hardware V1.3 (PT2314) | ✅ Stable |
+| **Firmware V1.4** (à venir) | Code ESP32-S3 pour Hardware V1.4 (TDA7439) | 🔄 Développement |
 
 ---
 
@@ -118,7 +158,7 @@ Le TDA7439 est un processeur audio analogique haute qualité qui remplace le PT2
 
 ### **Loudness automatique**
 
-Compensation psychoacoustique de Fletcher-Munson : 
+Compensation psychoacoustique de Fletcher-Munson :  
 - ✅ Boost automatique bass/treble à faible volume
 - ✅ Activable ON/OFF via menu
 - ✅ Proportionnel au niveau d'écoute
@@ -131,161 +171,23 @@ Compensation psychoacoustique de Fletcher-Munson :
 - **Medium** : Élargissement moyen (+2dB diff)
 - **Wide** : Effet surround prononcé (+3dB diff)
 
-### **Contrôle I2C**
-
-Tous les paramètres sont contrôlés par ESP32-S3 via I2C (adresse 0x44).  
-Voir [firmware/README.md](firmware/README.md) pour les commandes série.
-
----
-
-### **1️⃣ Matériel requis**
-
-Voir [docs/Hardware_V1_4.md](docs/Hardware_V1_4.md) pour la **BOM complète** (~98€ hors PCB/batterie).
-
-📦 **Versions précédentes** :  [V1.3](docs/Hardware_V1_3.md) | [V1.2](docs/Hardware_V1_2.md) (si disponible)
-
-Composants clés :
-- ESP32-S3-WROOM-1-N8R8
-- MA12070 (ampli Class-D)
-- TDA7439 (égaliseur 3 bandes)
-- BTM525 (Bluetooth LDAC)
-- PCM5102A (DAC I2S)
-- OPA2134 (préampli phono + buffers)
-- MCP4261 (volume SPI)
-- BMS 6S 20A
-
-### **2️⃣ Firmware**
-
-#### ⚠️ **IMPORTANT - Choisir la bonne version**
-
-| Votre hardware | Firmware à utiliser | Fichier |
-|----------------|---------------------|---------|
-| **V1.4** (TDA7439) | 🔄 **V1.4** (en dev) | `firmware/Ampli_V1_4.ino` (à venir) |
-| **V1.3** (PT2314) | ✅ **V1.3** (stable) | `firmware/Ampli_V1_3.ino` |
-
-#### 📥 **Installation Firmware V1.3 (Hardware V1.3)**
-
-1. Installer [Arduino IDE](https://www.arduino.cc/en/software) + ESP32 Core
-2. Installer les bibliothèques (voir [firmware/README.md](firmware/README.md))
-3. Ouvrir `firmware/Ampli_V1_3.ino`
-4. ⚠️ **Vérifier dans le code** : 
-   ```cpp
-   // Ligne ~50 du fichier . ino
-   #define HARDWARE_VERSION "1.3"  // Doit correspondre à votre carte !
-   
-Sélectionner ESP32S3 Dev Module
-Upload 🚀
-🔄 Pour Hardware V1.4 - Utilisation temporaire
-En attendant le firmware V1.4, vous pouvez :
-
-Utiliser firmware V1.3 MAIS :
-❌ TDA7439 non fonctionnel (pas de volume/EQ)
-✅ Sources BT/AUX/Phono OK
-✅ Ampli MA12070 OK
-Ou attendre la sortie du firmware V1.4 (fin décembre)
-📝 Vérifier la compatibilité
-Avant de flasher, vérifiez dans le Serial Monitor (115200 bauds) :
-
-=================================
-AMPLI AUDIOPHILE V1.3
-Hardware:  V1.3 (PT2314/MCP4261)
-=================================
-EQ chip: PT2314 detecte @ 0x44
-Volume chip: MCP4261 OK
-Si vous avez V1.4 hardware, vous verrez :
-
-Code
-EQ chip: PT2314 NON detecte  ⚠️
-TDA7439 detecte @ 0x44       ⚠️ (non supporté V1.3 firmware)
-Code
-
----
-
-### **3️⃣ Assemblage**
-
-Architecture **bi-carte** :
-- **Carte 1** (80×100mm) : Puissance (BMS, alimentation, MA12070, HP)
-- **Carte 2** (80×120mm) : Signal/Contrôle (ESP32, BT, DAC, EQ, préampli phono)
-- **Liaison** : Nappe JST XH 14 pins
-
-Voir [docs/Hardware_V1_3.md](docs/Hardware_V1_3.md) section **Architecture bi-carte**.
-
----
-
-## 📖 Documentation
-
-| Document | Description | Statut |
-|----------|-------------|--------|
-| [**Hardware V1.4**](docs/Hardware_V1_4.md) | **⭐ Version actuelle** - TDA7439 3-band EQ, Loudness, Spatial | ✅ Actif |
-| [**Hardware V1.3**](docs/Hardware_V1_3.md) | Version précédente (PT2314 2-band) | 📦 Archive |
-| [**Breakout Box V1**](docs/Breakout_Box_V1.md) | Outil de test (réduit debug 2h→15min) | ✅ Actif |
-| [**Firmware V1.3**](firmware/README.md) | Code ESP32-S3 (à mettre à jour pour V1.4) | 🔄 En cours |
-
----
-
-## 🎛️ Fonctionnalités V1.4
-
-### **Égaliseur 3 bandes (TDA7439)**
-- **Bass** : ±14dB @ ~100Hz (réglable, pas de 2dB)
-- **Mid** : ±14dB @ ~1kHz (réglable, pas de 2dB)
-- **Treble** : ±14dB @ ~10kHz (réglable, pas de 2dB)
-- **8 presets** :   Flat, Bass+, Vocal, Rock, Jazz, Cinema, Live, Custom
-- **THD+N** : < 0,01% @ 1kHz
-
-### **Loudness automatique** ⭐ NOUVEAU
-- Boost automatique bass (+6dB) à faible volume (< -30dB)
-- Légère atténuation mid (-2dB) pour clarté
-- Compensation psychoacoustique de Fletcher-Munson
-- Activable ON/OFF via menu
-
-### **Effet Spatial/Surround** ⭐ NOUVEAU
-- **4 niveaux** :   OFF, Light (+1dB diff L/R), Medium (+2dB), Wide (+3dB)
-- Élargissement de la scène stéréo sans DSP externe
-- Basé sur atténuation différentielle L/R du TDA7439
-
-### **Volume & Gain**
-- **Volume** : 0 à -47dB + mute (TDA7439 intégré)
-- **Gain d'entrée** : 0 à +30dB ajustable (pour compenser sources faibles)
-- **Balance L/R** : 0 à -79dB par canal
-
-### **Contrôles**
-- **Encodeur rotatif** :   Volume, navigation menu
-- **OLED 128×64** : Affichage source, volume, EQ graphique, VU-mètre, batterie
-- **Télécommande IR** : Volume, source, mute, presets, loudness, spatial
-- **Commandes série** : Configuration avancée, debug (voir firmware/README.md)
-
-### **Loudness automatique**
-- Boost bass/treble automatique à faible volume
-- Compense la courbe de Fletcher-Munson
-- Configurable ON/OFF
-
-### **Effet Spatial/Surround**
-- 4 niveaux :  OFF, Light, Medium, Wide
-- Élargissement de la scène stéréo
-
-### **Contrôles**
-- **Encodeur rotatif** :  Volume, navigation menu
-- **OLED 128×64** : Affichage source, volume, EQ, VU-mètre, batterie
-- **Télécommande IR** : Volume, source, mute, presets
-- **Commandes série** : Debug et configuration avancée
-
 ---
 
 ## 🔧 Changelog
 
-### **V1.4** (13/12/2025) ⭐ **VERSION ACTUELLE**
+### **V1.4** (13/12/2025) ⭐ **VERSION HARDWARE ACTUELLE**
 
 #### 🎛️ **Audio**
 - ✅ **TDA7439 DIP-30** : Processeur audio 3 bandes (remplace PT2314)
 - ✅ **Égaliseur 3 bandes** : Bass / Mid / Treble ±14dB (pas de 2dB)
 - ✅ **8 presets** : Flat, Bass+, Vocal, Rock, Jazz, Cinema, Live, Custom
 - ✅ **Loudness automatique** : Compensation Fletcher-Munson à faible volume
-- ✅ **Effet Spatial** :  4 niveaux (OFF, Light, Medium, Wide)
+- ✅ **Effet Spatial** :   4 niveaux (OFF, Light, Medium, Wide)
 - ✅ **Volume intégré** : 0 à -47dB + mute (suppression MCP4261)
 - ✅ **Gain d'entrée** : 0-30dB ajustable par logiciel (4 sources disponibles)
 
 #### 🔧 **Architecture**
-- ✅ Chaîne audio simplifiée :  CD4053 → TDA7439 → Buffer OPA2134 → MA12070
+- ✅ Chaîne audio simplifiée :   CD4053 → TDA7439 → Buffer OPA2134 → MA12070
 - ✅ 4 entrées disponibles : IN1 (BT/AUX), IN2 (Phono), IN3/IN4 (futures évolutions)
 - ✅ THD+N maintenu < 0,01% sur toute la chaîne
 - ✅ SNR > 90dB (TDA7439)
@@ -298,24 +200,30 @@ Voir [docs/Hardware_V1_3.md](docs/Hardware_V1_3.md) section **Architecture bi-ca
 
 #### 📝 **Documentation**
 - ✅ [Hardware_V1_4.md](docs/Hardware_V1_4.md) : Pinouts TDA7439, schéma filtres
-- 🔄 Firmware à mettre à jour (support TDA7439 I2C)
+- 🔄 Firmware V1.4 en développement (support TDA7439 I2C)
 
 ---
 
-**Avantages V1.4 :**
-- ✅ TDA7439 centralise Volume + EQ + Balance (moins de composants)
-- ✅ 4 entrées disponibles (IN3/IN4 libres pour évolutions)
-- ✅ Loudness et Spatial sans DSP externe
-- ✅ THD+N < 0,01% maintenu sur toute la chaîne
-- ✅ Contrôle total I2C (flexibilité firmware)
-
 ### **V1.3** (13/12/2025) 📦 Archive
+
 - ✅ Support PT2314 (égaliseur 2 bandes)
 - ✅ Volume MCP4261
 - ✅ Préampli Phono RIAA
 - ✅ ESP32-S3 + OLED + Encodeur
+- ✅ Firmware stable
 
 ---
+
+### **V1.2** (12/12/2025) 📦 Archive
+- Pinouts explicites BMS, BT, DAC, Ampli
+
+### **V1.1** (11/12/2025) 📦 Archive
+- Sécurité batterie 5 niveaux
+
+### **V1.0** (11/12/2025) 📦 Archive
+- Architecture initiale
+
+Voir [docs/Hardware_V1_4.md](docs/Hardware_V1_4.md) pour le changelog complet.
 
 ---
 
@@ -332,15 +240,46 @@ Voir [docs/Breakout_Box_V1.md](docs/Breakout_Box_V1.md)
 
 ---
 
-## 📸 Photos
+## ❓ FAQ Versions
 
-*(À ajouter :  photos du prototype assemblé, PCB, écran OLED en fonctionnement)*
+### **Q1 :  J'ai hardware V1.4, quel firmware utiliser ?**
+
+**R :** Pour l'instant, **attendez le firmware V1.4** (fin décembre 2025).  
+
+**Workaround temporaire** :  
+- Vous pouvez utiliser firmware V1.3 mais :  
+  - ❌ TDA7439 ne fonctionnera pas (pas de volume/EQ)
+  - ✅ Sources audio et ampli OK
+
+### **Q2 : Comment savoir quelle version hardware j'ai ?**
+
+Regardez les composants sur **Carte 2** : 
+
+| Composant visible | Version hardware |
+|-------------------|------------------|
+| **TDA7439** DIP-30 (gros chip 30 pins) | ✅ **V1.4** |
+| **PT2314** DIP-20 + **MCP4261** DIP-14 | ✅ **V1.3** |
+
+### **Q3 : Puis-je upgrader V1.3 → V1.4 hardware ?**
+
+**Oui, mais nécessite modifications** :  
+
+**À remplacer** :
+- ❌ PT2314 → TDA7439
+- ❌ MCP4261 → *(supprimer, volume géré par TDA7439)*
+
+**À ajouter** :
+- ➕ Condensateurs filtres EQ (voir [BOM V1.4](docs/Hardware_V1_4.md))
+- ➕ LM7809 régulateur 9V pour TDA7439
+
+**Coût upgrade** : ~5€  
+**Difficulté** : ⭐⭐⭐ Moyenne (dessoudage PT2314/MCP4261)
 
 ---
 
 ## 🤝 Contribution
 
-Les contributions sont les bienvenues ! N'hésitez pas à : 
+Les contributions sont les bienvenues ! N'hésitez pas à :  
 - 🐛 Signaler des bugs (Issues)
 - 💡 Proposer des améliorations
 - 🔧 Soumettre des Pull Requests
@@ -351,10 +290,10 @@ Les contributions sont les bienvenues ! N'hésitez pas à :
 
 Ce projet est sous **licence propriétaire à usage non commercial**. 
 
-- ✅ **Usage personnel/éducatif** :  Libre et gratuit
-- ❌ **Usage commercial** : Requiert une licence payante
+- ✅ **Usage personnel/éducatif** :   Libre et gratuit
+- ❌ **Usage commercial** :  Requiert une licence payante
 
-**Pour une licence commerciale**, contactez l'auteur. 
+**Pour une licence commerciale**, contactez l'auteur.  
 
 Voir [LICENSE](LICENSE) pour les détails complets.
 
@@ -362,7 +301,18 @@ Voir [LICENSE](LICENSE) pour les détails complets.
 
 ## 👤 Auteur
 
-Mehdi
+**Mehdi** + Claude (assistant IA)
+
+---
+
+## ⭐ Remerciements
+
+- Infineon (MA12070)
+- Texas Instruments (OPA2134, PCM5102A)
+- Qualcomm (QCC5125)
+- **STMicroelectronics (TDA7439)**
+- Microchip (MCP4261)
+- Espressif (ESP32-S3)
 
 ---
 
