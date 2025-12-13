@@ -2,9 +2,44 @@
 
 **Amplificateur stéréo Class-D 2×20W haute fidélité avec préampli phono, Bluetooth LDAC, égaliseur 3 bandes et contrôle numérique.**
 
-![Version](https://img.shields.io/badge/version-1.4-blue)
+![Hardware](https://img.shields.io/badge/Hardware-v1.4-blue)
+![Firmware](https://img.shields.io/badge/Firmware-v1.3-orange)
 ![License](https://img.shields.io/badge/license-Proprietary-orange)
 ![Status](https://img.shields.io/badge/status-active-success)
+
+---
+
+## 📌 Compatibilité versions
+
+| Hardware | Firmware | Statut | Notes |
+|----------|----------|--------|-------|
+| **V1.4** | **V1.3** | ⚠️ **Partiel** | TDA7439 non supporté, utiliser firmware V1.4 (en dev) |
+| **V1.3** | **V1.3** | ✅ **OK** | Pleinement compatible (PT2314/MCP4261) |
+| **V1.2** | **V1.3** | ⚠️ **Partiel** | Manque préampli phono, encodeur, OLED |
+| **V1.1** | **V1.0-V1.2** | ❌ **Non** | Architecture différente |
+
+### ⚙️ **Configuration actuelle recommandée**
+
+Pour un système fonctionnel **immédiatement** : 
+- ✅ **Hardware V1.3** + **Firmware V1.3** = 100% fonctionnel
+- 🔄 **Hardware V1.4** + **Firmware V1.4** = En développement (TDA7439 support en cours)
+
+### 🔜 **Firmware V1.4 - Roadmap**
+
+- [ ] Support TDA7439 I2C (remplace PT2314)
+- [ ] Suppression code MCP4261 (volume géré par TDA7439)
+- [ ] Ajout presets 8 positions (Cinema, Live)
+- [ ] Loudness automatique
+- [ ] Spatial control
+- [ ] Mise à jour commandes série
+
+📅 **Sortie estimée** :  Fin décembre 2025
+
+---
+
+> ⚠️ **Versions actuelles** :   
+> - 🔌 **Hardware V1.4** (13/12/2025) - TDA7439 3-band EQ  
+> - 💾 **Firmware V1.3** (13/12/2025) - Compatible V1.3 hardware, **V1.4 en cours**
 
 ---
 
@@ -121,11 +156,61 @@ Composants clés :
 
 ### **2️⃣ Firmware**
 
+#### ⚠️ **IMPORTANT - Choisir la bonne version**
+
+| Votre hardware | Firmware à utiliser | Fichier |
+|----------------|---------------------|---------|
+| **V1.4** (TDA7439) | 🔄 **V1.4** (en dev) | `firmware/Ampli_V1_4.ino` (à venir) |
+| **V1.3** (PT2314) | ✅ **V1.3** (stable) | `firmware/Ampli_V1_3.ino` |
+
+#### 📥 **Installation Firmware V1.3 (Hardware V1.3)**
+
 1. Installer [Arduino IDE](https://www.arduino.cc/en/software) + ESP32 Core
 2. Installer les bibliothèques (voir [firmware/README.md](firmware/README.md))
 3. Ouvrir `firmware/Ampli_V1_3.ino`
-4. Sélectionner **ESP32S3 Dev Module**
-5. **Upload** 🚀
+4. ⚠️ **Vérifier dans le code** : 
+   ```cpp
+   // Ligne ~50 du fichier . ino
+   #define HARDWARE_VERSION "1.3"  // Doit correspondre à votre carte !
+   
+Sélectionner ESP32S3 Dev Module
+Upload 🚀
+🔄 Pour Hardware V1.4 - Utilisation temporaire
+En attendant le firmware V1.4, vous pouvez :
+
+Utiliser firmware V1.3 MAIS :
+❌ TDA7439 non fonctionnel (pas de volume/EQ)
+✅ Sources BT/AUX/Phono OK
+✅ Ampli MA12070 OK
+Ou attendre la sortie du firmware V1.4 (fin décembre)
+📝 Vérifier la compatibilité
+Avant de flasher, vérifiez dans le Serial Monitor (115200 bauds) :
+
+=================================
+AMPLI AUDIOPHILE V1.3
+Hardware:  V1.3 (PT2314/MCP4261)
+=================================
+EQ chip: PT2314 detecte @ 0x44
+Volume chip: MCP4261 OK
+Si vous avez V1.4 hardware, vous verrez :
+
+Code
+EQ chip: PT2314 NON detecte  ⚠️
+TDA7439 detecte @ 0x44       ⚠️ (non supporté V1.3 firmware)
+Code
+
+---
+
+### **4️⃣ Modifier la section "Documentation"**
+
+**Cherche** :
+```markdown
+| [**Firmware V1.3**](firmware/README.md) | Code ESP32-S3 (à mettre à jour pour V1.4) | 🔄 En cours |
+Remplace par :
+
+Markdown
+| [**Firmware V1.3**](firmware/README.md) | Code ESP32-S3 pour Hardware V1.3 (PT2314) | ✅ Stable |
+| **Firmware V1.4** (à venir) | Code ESP32-S3 pour Hardware V1.4 (TDA7439) | 🔄 Développe
 
 ### **3️⃣ Assemblage**
 
