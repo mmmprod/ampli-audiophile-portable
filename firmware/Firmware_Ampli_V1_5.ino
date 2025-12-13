@@ -9,7 +9,7 @@
  * Board    : ESP32-S3-WROOM-1-N8R8
  * Framework: Arduino (ESP32 Core 2.0+)
  * 
- * CHANGELOG V1.5 (AUDIT GEMINI):
+ * CHANGELOG V1.5 :
  *   - [G1] I2C timeout 10ms (Wire.setTimeOut) anti-blocage bus
  *   - [G2] Support protection PVDD (D3 Schottky -> 24.7V max)
  *   - [G3] Nappe 16 pins avec blindage GND (anti-crosstalk)
@@ -17,7 +17,7 @@
  *   - [G5] LDO audio dedie MCP1703 (rail +5V_ANALOG)
  *   - Mise a jour mapping pins nappe J_INTER
  * 
- * CHANGELOG V1.4 (AUDIT COPILOT):
+ * CHANGELOG V1.4 :
  *   - [P0] Filtre median ADC batterie/temperature (anti-spike)
  *   - [P1] Section critique encodeur (atomicite ESP32)
  *   - [P2] Verification code retour I2C avec retry
