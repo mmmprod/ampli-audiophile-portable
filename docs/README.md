@@ -1,23 +1,18 @@
 # 📚 Documentation Technique
 
-Ce dossier contient toute la documentation du projet Amplificateur Audiophile Portable.
+Ce dossier rassemble la documentation matérielle et les guides de test pour l'amplificateur audiophile portable.
 
-## 📄 Fichiers
+## 📄 Fichiers disponibles
 
-- **[Hardware_V1_3.md](Hardware_V1_3.md)** :  Schéma électronique complet, pinouts, BOM
-- **[Breakout_Box_V1.md](Breakout_Box_V1.md)** : Outil de test/debug
-- **[Schema_Bloc. md](Schema_Bloc.md)** : Vue d'ensemble de l'architecture
+- **[Hardware_V1_4.md](Hardware_V1_4.md)** : version actuelle (TDA7439, égaliseur 3 bandes, loudness, spatial).
+- **[Ampli_Audiophile_Portable_V1_3.md](Ampli_Audiophile_Portable_V1_3.md)** : documentation historique de la carte V1.3.
+- **[Breakout_Box_V1.md](Breakout_Box_V1.md)** : banc de test pour valider rapidement le hardware.
 
 ## 🔧 Versions
 
-- **V1.3** (12/12/2025) : Version actuelle
-  - Préampli phono RIAA (OPA2134)
-  - Égaliseur 3 bandes TDA7439
-  - Volume numérique MCP4261
-  - ESP32-S3 + OLED
-  - Contrôle encodeur rotatif
-  - Headers test pour debug
+- **V1.4** (13/12/2025) : carte recommandée avec TDA7439, volume intégré, corrections fiabilité.
+- **V1.3** (12/12/2025) : révision précédente (PT2314 + MCP4261), conservée pour référence.
 
-## 📝 Changelog complet
+## 📝 Changelog
 
-Voir chaque fichier pour le détail des modifications.
+Consultez chaque fichier pour le détail des modifications spécifiques à la version correspondante.
