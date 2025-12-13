@@ -244,19 +244,19 @@ Le firmware V1.4 inclut des commandes de test avancées :
 
 Résultats validation :
 
-✅ ADC spike filtering : 100% spikes détectés/filtrés (test 1000 échantillons)
-✅ I2C retry : 0 perte communication (test 10k transactions)
-✅ Race condition encodeur : 0 corruption valeur (test rotation 5000 RPM)
-✅ Watchdog : Recovery < 5s sur freeze forcé
+- ✅ ADC spike filtering : 100% spikes détectés/filtrés (test 1000 échantillons)
+- ✅ I2C retry : 0 perte communication (test 10k transactions)
+- ✅ Race condition encodeur : 0 corruption valeur (test rotation 5000 RPM)
+- ✅ Watchdog : Recovery < 5s sur freeze forcé
 ❓ FAQ Versions
 Q1 : J'ai hardware V1.4, quel firmware utiliser ?
 R : Utilisez Firmware V1.4 (firmware/Firmware_Ampli_V1_4.ino)
 
 Avantages V1.4 :
 
-✅ TDA7439 pleinement supporté
-✅ Corrections fiabilité (anti-spike ADC, I2C retry)
-✅ Télémétrie erreurs I2C
+- ✅ TDA7439 pleinement supporté
+- ✅ Corrections fiabilité (anti-spike ADC, I2C retry)
+- ✅ Télémétrie erreurs I2C
 Q2 : Comment savoir quelle version hardware j'ai ?
 Regardez les composants sur Carte 2 :
 
