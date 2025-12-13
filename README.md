@@ -1,6 +1,6 @@
 # 🎵 Amplificateur Audiophile Portable
 
-[![Version](https://img.shields.io/badge/version-1.6-blue.svg)](https://github.com/votre-repo)
+[![Version](https://img.shields.io/badge/version-1.7-blue.svg)](https://github.com/votre-repo)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Hardware](https://img.shields.io/badge/hardware-ESP32--S3-orange.svg)](docs/)
 [![Status](https://img.shields.io/badge/status-En%20développement-yellow.svg)]()
@@ -67,7 +67,7 @@
 | N2 | Surchauffe pack | TCO Aupo 72°C réarmable |
 | N3 | Coupure logicielle | Relais HF46F + opto PC817 |
 | N4 | Surintensité | Fusible 5A Fast-blow ATO |
-| N5 | Surtension/inversion | TVS SMBJ24CA + Schottky SS54 |
+| N5 | Surtension/inversion | TVS SMBJ24CA + 1N5822 |
 
 ---
 
@@ -96,11 +96,11 @@ ampli-audiophile-portable/
 ├── LICENSE
 ├── docs/
 │   ├── README.md             # Documentation hardware détaillée
-│   ├── Ampli_V1_6.md         # Schéma complet V1.6
+│   ├── Ampli_V1_7.md         # Schéma complet V1.7
 │   └── BOM.csv               # Bill of Materials
 ├── firmware/
 │   ├── README.md             # Documentation firmware détaillée
-│   ├── Firmware_V1_6.ino     # Code source V1.6
+│   ├── Firmware_V1_7.ino     # Code source V1.7
 │   └── libraries/            # Dépendances
 ├── hardware/
 │   ├── kicad/                # Fichiers KiCad (à venir)
@@ -125,7 +125,7 @@ ampli-audiophile-portable/
 # Cloner le repo
 git clone https://github.com/votre-user/ampli-audiophile-portable.git
 
-# Ouvrir firmware/Firmware_V1_6.ino dans Arduino IDE
+# Ouvrir firmware/Firmware_V1_7.ino dans Arduino IDE
 # Board : ESP32S3 Dev Module
 # Upload !
 ```
@@ -134,14 +134,32 @@ git clone https://github.com/votre-user/ampli-audiophile-portable.git
 
 ## 📊 Changelog
 
-### V1.6 (13/12/2025) — Audit Exhaustif Fiabilité ⭐
+### V1.7 (13/12/2025) — Audit ChatGPT ⭐⭐
 
-**🔴 Hardware :**
-- R_DROP 47Ω → **3W** (WCCA validé)
+**🔴 Hardware CRITIQUE :**
+- **LM7812 ajouté** : pré-régulateur 12V (VIN MCP1703A garanti < 16V)
+- **R_DROP 47Ω supprimée** : inutile avec LM7812
+- **D3 SS54 → 1N5822** : Vf 0.9V → PVDD nominal 24.3V (marge +0.7V)
+
+**🟡 Firmware Améliorations :**
+- `esp_timer_get_time()` dans ISR (plus robuste que millis())
+- `i2cBusRecovery()` au boot (récupère bus I2C bloqué)
+
+**Justification V1.7 :**
+```
+BUG CRITIQUE V1.6: MCP1703A VIN max = 18V absolu
+Avant: +22V_RAW → R_DROP → MCP1703A (VIN ≈ 24V) ❌ DÉTRUIT
+Après: +22V_RAW → LM7812 → 12V → MCP1703A ✅ GARANTI
+```
+
+### V1.6 (13/12/2025) — Audit Exhaustif Fiabilité
+
+**Hardware :**
+- R_DROP 47Ω → 3W (WCCA validé)
 - Star Ground explicite sur C_BULK
 - Règles placement PCB anti-crosstalk
 
-**🔴 Firmware :**
+**Firmware :**
 - `emergencyShutdown()` sécurisé (detachInterrupt first)
 - Encodeur anti-spam (±5 pas/cycle max)
 - NTC validation (détection déconnexion/CC)
@@ -166,12 +184,12 @@ git clone https://github.com/votre-user/ampli-audiophile-portable.git
 
 | Catégorie | Coût |
 |-----------|------|
-| Semiconducteurs | ~53 € |
+| Semiconducteurs | ~55 € |
 | Passifs | ~18 € |
 | Connecteurs | ~9 € |
 | Modules (BMS, Buck, OLED) | ~17 € |
 | Divers | ~7 € |
-| **TOTAL** | **~104 €** |
+| **TOTAL** | **~106 €** |
 
 *(hors PCB, boîtier, batterie, haut-parleurs)*
 
@@ -184,7 +202,8 @@ git clone https://github.com/votre-user/ampli-audiophile-portable.git
 | Cold-crank 6V | +5V_MCU > 4.75V | Vérifier buck |
 | I_repos ampli OFF | < 1mA | Vérifier sleep mode |
 | Protection backfeed | < 1V sur entrée | Vérifier D3 |
-| TVS clamp | < 26V @ 18V in | Vérifier D2 |
+| PVDD nominal | 24.0-24.5V | Vérifier D3 1N5822 |
+| LM7812 sortie | 11.5-12.5V | Vérifier LM7812 |
 
 ---
 
@@ -197,6 +216,7 @@ MIT License — Voir [LICENSE](LICENSE)
 ## 🙏 Remerciements
 
 - Infineon (MA12070), ST (TDA7439), Espressif (ESP32-S3)
+- Audits : Copilot, Gemini, Claude, ChatGPT
 - Communauté DIY audio
 
 ---
