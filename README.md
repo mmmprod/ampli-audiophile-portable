@@ -201,17 +201,6 @@ Code
 
 ---
 
-### **4️⃣ Modifier la section "Documentation"**
-
-**Cherche** :
-```markdown
-| [**Firmware V1.3**](firmware/README.md) | Code ESP32-S3 (à mettre à jour pour V1.4) | 🔄 En cours |
-Remplace par :
-
-Markdown
-| [**Firmware V1.3**](firmware/README.md) | Code ESP32-S3 pour Hardware V1.3 (PT2314) | ✅ Stable |
-| **Firmware V1.4** (à venir) | Code ESP32-S3 pour Hardware V1.4 (TDA7439) | 🔄 Développe
-
 ### **3️⃣ Assemblage**
 
 Architecture **bi-carte** :
