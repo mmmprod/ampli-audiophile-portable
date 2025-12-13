@@ -1,0 +1,52 @@
+# Arduino/ESP32
+*. hex
+*.eep
+*.elf
+*.map
+*.sym
+*. lss
+*.bin
+
+# Build folders
+build/
+. build/
+*. build/
+
+# IDE files
+.vscode/
+.idea/
+*.code-workspace
+*. sublime-*
+
+# Compilation
+*.o
+*.d
+*. su
+*.log
+
+# KiCad
+*. kicad_pcb-bak
+*.kicad_sch-bak
+*-backups/
+*. bak
+fp-info-cache
+*. pretty/
+
+# OS files
+.DS_Store
+Thumbs.db
+*. swp
+*. swo
+*~
+
+# Documentation temp
+*.tmp
+*.temp
+
+# Python (si tu utilises des scripts)
+__pycache__/
+*.pyc
+*.pyo
+
+# Node modules (si tu utilises des outils web)
+node_modules/
