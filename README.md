@@ -1,71 +1,206 @@
 # 🎵 Amplificateur Audiophile Portable
 
-Amplificateur stéréo Class-D 2×20W avec préampli phono, Bluetooth LDAC, égaliseur 3 bandes et contrôle numérique.
+[![Version](https://img.shields.io/badge/version-1.6-blue.svg)](https://github.com/votre-repo)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Hardware](https://img.shields.io/badge/hardware-ESP32--S3-orange.svg)](docs/)
+[![Status](https://img.shields.io/badge/status-En%20développement-yellow.svg)]()
 
-![Hardware](https://img.shields.io/badge/Hardware-v1.4-blue)
-![Firmware](https://img.shields.io/badge/Firmware-v1.4-green)
-![Status](https://img.shields.io/badge/status-active-success)
+> Amplificateur Hi-Fi portable 2×20W avec Bluetooth LDAC, entrée Phono vinyle, et égaliseur 3 bandes.
 
-## ✅ Versions recommandées
+---
 
-| Hardware | Firmware | Statut | Notes |
-|----------|----------|--------|-------|
-| **V1.4** | **V1.4** | ✅ Recommandé | TDA7439 (EQ 3 bandes), volume intégré, corrections fiabilité |
-| **V1.3** | **V1.3** | 📦 Archive | PT2314 + MCP4261 (legacy) |
+## 🎯 Caractéristiques
 
-> Utilisez le firmware correspondant à votre carte pour éviter les incompatibilités (voir section firmware ci-dessous).
+| Paramètre | Valeur |
+|-----------|--------|
+| **Puissance** | 2 × 20W RMS @ 8Ω |
+| **THD+N** | < 0,01% @ 1W |
+| **SNR** | > 110dB (ampli) / > 65dB (phono) |
+| **Bluetooth** | LDAC, aptX HD, aptX, AAC, SBC |
+| **Entrées** | Bluetooth, AUX 3.5mm, Phono MM |
+| **Égaliseur** | 3 bandes ±14dB (Bass/Mid/Treble) |
+| **Batterie** | LiPo 6S (22.2V nominal) |
+| **Autonomie** | 4-6h @ volume moyen |
 
-## ✨ Caractéristiques
+---
 
-- **Puissance** : 2 × 20W RMS @ 8Ω (MA12070 Class-D).
-- **Sources** : Bluetooth LDAC/aptX HD (BTM525 QCC5125), AUX 3.5mm, Phono MM (préampli RIAA OPA2134).
-- **Égaliseur 3 bandes (V1.4)** : Bass/Mid/Treble ±14dB (pas 2dB), loudness automatique, effet spatial, 8 presets.
-- **Volume & gain** : contrôle intégré TDA7439 (0 à -47dB + mute), gain d'entrée ajustable 0-30dB (V1.4) ou MCP4261 (V1.3).
-- **Contrôle** : encodeur rotatif + OLED 128×64 + télécommande IR.
-- **Alimentation** : Batterie LiPo 6S (18-25V) avec BMS, autonomie 4-6h.
+## 🏗️ Architecture Bi-Carte
 
-## 🚀 Démarrage rapide
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    CARTE 2 - SIGNAL                         │
+│  ESP32-S3 │ BTM525 BT │ PCM5102A DAC │ TDA7439 EQ │ OPA2134 │
+│                      80 × 120 mm                            │
+└─────────────────────────┬───────────────────────────────────┘
+                          │ Nappe 16 pins (blindée GND)
+┌─────────────────────────┴───────────────────────────────────┐
+│                    CARTE 1 - PUISSANCE                      │
+│  BMS 6S │ Sécurité 5 niv │ MA12070 Class-D │ Sorties HP    │
+│  ⭐ Star Ground sur C_BULK                                  │
+│                      80 × 100 mm                            │
+└─────────────────────────────────────────────────────────────┘
+```
 
-### 1) Choisir la documentation hardware
+### Composants Principaux
 
-| Version | Guide |
-|---------|-------|
-| **V1.4 (recommandée)** | [docs/Hardware_V1_4.md](docs/Hardware_V1_4.md) |
-| **V1.3 (archive)** | [docs/Ampli_Audiophile_Portable_V1_3.md](docs/Ampli_Audiophile_Portable_V1_3.md) |
-| **Outil de test** | [docs/Breakout_Box_V1.md](docs/Breakout_Box_V1.md) |
+| Composant | Fonction | Lien |
+|-----------|----------|------|
+| **MA12070** | Ampli Class-D 2×20W | [Infineon](https://www.infineon.com) |
+| **TDA7439** | Processeur audio EQ 3 bandes | [ST](https://www.st.com) |
+| **BTM525** | Module Bluetooth QCC5125 LDAC | AliExpress |
+| **PCM5102A** | DAC I2S 32-bit 384kHz | [TI](https://www.ti.com) |
+| **OPA2134** | Op-Amp audio faible bruit | [TI](https://www.ti.com) |
+| **ESP32-S3** | MCU WiFi/BT, contrôle système | [Espressif](https://www.espressif.com) |
 
-### 2) Sélectionner le firmware
+---
 
-| Votre hardware | Firmware à flasher |
-|----------------|--------------------|
-| **V1.4** (TDA7439) | `firmware/Firmware_Ampli_V1_4.ino` |
-| **V1.3** (PT2314 + MCP4261) | `firmware/Ampli_V1_3.ino` |
+## 🔋 Sécurité Batterie 5 Niveaux
 
-1. Installer l'IDE Arduino + ESP32 Core 2.0+.
-2. Ajouter les bibliothèques : `Adafruit_GFX`, `Adafruit_SSD1306`, `IRremoteESP8266`.
-3. Ouvrir le fichier `.ino` correspondant, sélectionner **ESP32S3 Dev Module**, puis uploader.
+```
++PACK ──► BMS ──► TCO 72°C ──► Relais K1 ──► Fusible 5A ──► TVS ──► Circuit
+          N1       N2            N3            N4           N5
+```
 
-### 3) Assemblage
+| Niveau | Protection | Composant |
+|--------|------------|-----------|
+| N1 | Surcharge/décharge cellules | BMS JBD 6S 20A |
+| N2 | Surchauffe pack | TCO Aupo 72°C réarmable |
+| N3 | Coupure logicielle | Relais HF46F + opto PC817 |
+| N4 | Surintensité | Fusible 5A Fast-blow ATO |
+| N5 | Surtension/inversion | TVS SMBJ24CA + Schottky SS54 |
 
-- Architecture bi-carte :
-  - **Carte 1** (80×100mm) : alimentation/BMS + MA12070.
-  - **Carte 2** (80×120mm) : ESP32, Bluetooth, DAC, égaliseur, préampli phono.
-- Liaison par nappe JST XH 14 pins. Détails dans [docs/Hardware_V1_4.md](docs/Hardware_V1_4.md).
+---
 
-## 🧪 Tests et diagnostics
+## 🎛️ Fonctionnalités Audio
 
-Firmware V1.4 inclut des commandes série :
+### Égaliseur TDA7439
+- **Bass** : ±14dB @ 100Hz
+- **Mid** : ±14dB @ 1kHz  
+- **Treble** : ±14dB @ 10kHz
+- **8 Presets** : Flat, Bass+, Vocal, Rock, Jazz, Cinema, Live, Custom
 
-- `i2ctest` : détection des périphériques et comptage des erreurs.
-- `adctest` : filtre médian sur 5 échantillons.
-- `stats` : statistiques complètes et watchdog.
+### Loudness Automatique
+Compensation Fletcher-Munson à bas volume (boost basses progressif)
 
-## 🤝 Contribution
+### Préampli Phono RIAA
+- Gain 38dB @ 1kHz
+- Condensateurs film polypropylène (THD < 0.001%)
 
-Les contributions sont les bienvenues : ouverture d'issues, propositions d'amélioration et pull requests. Consultez la licence pour les conditions d'usage.
+---
+
+## 📁 Structure du Repository
+
+```
+ampli-audiophile-portable/
+├── README.md                 # Ce fichier
+├── LICENSE
+├── docs/
+│   ├── README.md             # Documentation hardware détaillée
+│   ├── Ampli_V1_6.md         # Schéma complet V1.6
+│   └── BOM.csv               # Bill of Materials
+├── firmware/
+│   ├── README.md             # Documentation firmware détaillée
+│   ├── Firmware_V1_6.ino     # Code source V1.6
+│   └── libraries/            # Dépendances
+├── hardware/
+│   ├── kicad/                # Fichiers KiCad (à venir)
+│   └── gerber/               # Fichiers fabrication (à venir)
+└── tests/
+    └── Protocole_Test.md     # Procédures de test
+```
+
+---
+
+## 🚀 Démarrage Rapide
+
+### Prérequis
+
+- Arduino IDE 2.x ou PlatformIO
+- ESP32 Board Package (v2.0+)
+- Bibliothèques requises (voir [firmware/README.md](firmware/README.md))
+
+### Installation Rapide
+
+```bash
+# Cloner le repo
+git clone https://github.com/votre-user/ampli-audiophile-portable.git
+
+# Ouvrir firmware/Firmware_V1_6.ino dans Arduino IDE
+# Board : ESP32S3 Dev Module
+# Upload !
+```
+
+---
+
+## 📊 Changelog
+
+### V1.6 (13/12/2025) — Audit Exhaustif Fiabilité ⭐
+
+**🔴 Hardware :**
+- R_DROP 47Ω → **3W** (WCCA validé)
+- Star Ground explicite sur C_BULK
+- Règles placement PCB anti-crosstalk
+
+**🔴 Firmware :**
+- `emergencyShutdown()` sécurisé (detachInterrupt first)
+- Encodeur anti-spam (±5 pas/cycle max)
+- NTC validation (détection déconnexion/CC)
+- Pré-brownout (sauvegarde avant coupure BMS)
+
+### V1.5 (13/12/2025) — Audit Gemini
+- Protection PVDD Schottky D3 → 24.7V max
+- TVS SMBJ24CA, nappe blindée, I2C timeout
+
+### V1.4 (13/12/2025) — Audit Copilot
+- Filtre médian ADC, section critique encodeur, I2C retry, WDT 5s
+
+### V1.3 (12/12/2025) — TDA7439 EQ
+- Égaliseur 3 bandes, 8 presets, loudness, spatial
+
+### V1.0-1.2 (11-12/12/2025) — Base
+- Architecture bi-carte, sécurité 5 niveaux, pinouts explicites
+
+---
+
+## 💰 Budget Estimé
+
+| Catégorie | Coût |
+|-----------|------|
+| Semiconducteurs | ~53 € |
+| Passifs | ~18 € |
+| Connecteurs | ~9 € |
+| Modules (BMS, Buck, OLED) | ~17 € |
+| Divers | ~7 € |
+| **TOTAL** | **~104 €** |
+
+*(hors PCB, boîtier, batterie, haut-parleurs)*
+
+---
+
+## 🧪 Tests Critiques
+
+| Test | Critère GO | Action si FAIL |
+|------|------------|----------------|
+| Cold-crank 6V | +5V_MCU > 4.75V | Vérifier buck |
+| I_repos ampli OFF | < 1mA | Vérifier sleep mode |
+| Protection backfeed | < 1V sur entrée | Vérifier D3 |
+| TVS clamp | < 26V @ 18V in | Vérifier D2 |
+
+---
 
 ## 📜 Licence
 
-Projet sous licence propriétaire à usage non commercial. Usage commercial sur demande. Voir le fichier LICENSE.
+MIT License — Voir [LICENSE](LICENSE)
 
-**🎵 Enjoy high-fidelity audio!**
+---
+
+## 🙏 Remerciements
+
+- Infineon (MA12070), ST (TDA7439), Espressif (ESP32-S3)
+- Communauté DIY audio
+
+---
+
+<p align="center">
+  <b>🎧 Fait avec ❤️ pour les audiophiles DIY</b>
+</p>
