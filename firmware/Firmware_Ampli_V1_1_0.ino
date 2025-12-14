@@ -1,783 +1,937 @@
-# AMPLI AUDIOPHILE PORTABLE V1.10
-
-## INFORMATIONS DOCUMENT
-
-**Version:** 1.10
-**Date:** 14 decembre 2025
-**Auteur:** Mehdi
-**Status:** Corrections audit externe - Level Shifter I2C, Molex, Anti-Plop
-
----
-
-## CHANGELOG V1.10
-
-### CORRECTIONS CRITIQUES (Audit Externe #2)
-
-| # | Bug | Gravite | Correction |
-|---|-----|---------|------------|
-| A1 | TDA7439 @ 5V hors specs (Vcc_min=7V) | FATAL | Alimentation 9V + Level Shifter BSS138 |
-| A2 | I2C 3.3V vs TDA7439 9V (V_IH=6.3V) | LOGIQUE | Level Shifter BSS138 bidirectionnel |
-| A3 | JST XH vibrations = deconnexion | MECA | Molex Micro-Fit 3.0 (verrouillage positif) |
-| A4 | Plop extinction (DC dans HP) | UX | Sequence firmware MUTE -> EN -> RELAY |
-| A5 | LM7812 sans dissipation | THERMIQUE | Plan cuivre 15x15mm sous tab |
-| A6 | VREF RIAA bruit residuel | SIGNAL | C_REF 10uF -> 47uF |
-| A7 | Oscillo BTL = court-circuit | DANGER | Isolateur USB + sticker geant |
-
-### Rappel Corrections V1.9
-
-| # | Bug | Correction |
-|---|-----|------------|
-| S1 | I2C recovery OUTPUT+HIGH | pinMode(INPUT) open-drain |
-| S2 | Nappe sans protection | PTC 750mA/500mA |
-| S3 | Inrush relais 500A | NTC 5ohm |
-| S4 | Buffer headroom 5V | Alimentation 9V |
-| S5 | VREF instable | C_REF decouplage |
-
----
-
-## SPECIFICATIONS
-
-| Parametre | Valeur |
-|-----------|--------|
-| Puissance | 2 x 20W RMS @ 8ohm |
-| THD+N | < 0.01% @ 1W |
-| SNR | > 110dB (ampli) / > 65dB (phono) |
-| Bluetooth | LDAC, aptX HD, aptX, AAC, SBC |
-| Entrees | Bluetooth, AUX 3.5mm, Phono MM |
-| Egaliseur | 3 bandes +/-14dB (Bass/Mid/Treble) |
-| Batterie | LiPo 6S 22.2V nominal (18-25.2V) |
-| Autonomie | 4-6h @ volume moyen |
-
----
-
-## ARCHITECTURE BI-CARTE
-
-```
-+-------------------------------------------------------------+
-|                    CARTE 2 - SIGNAL                         |
-|  ESP32-S3 | BTM525 BT | PCM5102A DAC | TDA7439 EQ | OPA2134 |
-|  [V1.10: Level Shifter BSS138 pour I2C 9V]                  |
-|                      80 x 120 mm                            |
-+-------------------------+-----------------------------------+
-                          | Molex Micro-Fit 3.0 16 pins
-                          | [V1.10: Verrouillage positif]
-+-------------------------+-----------------------------------+
-|                    CARTE 1 - PUISSANCE                      |
-|  BMS 6S | Securite 5 niv | MA12070 Class-D | Sorties HP     |
-|  [V1.10: Plan cuivre LM7812]                                |
-|                      80 x 100 mm                            |
-+-------------------------------------------------------------+
-```
-
----
-
-# CARTE 1 - PUISSANCE (80 x 100 mm)
-
-## C1-A : Module BMS
-
-### Composant
-JBD SP22S003B (6S 20A)
-
-### Connexions
-
-```
-Pack 6S B- --> BMS B- (fil bleu)
-Pack 6S B1-B6 --> JST XH-7P --> BMS Balance
-BMS C- (noir) --> GND_STAR (C_BULK negatif)
-BMS P+ (rouge) --> +BATT_PROT
-NTC 10k pack --> JST PH-2P --> BMS T
-```
-
-### Protections integrees
-
-| Protection | Seuil |
-|------------|-------|
-| Surcharge cellule | 4.25V +/-25mV |
-| Sous-decharge | 2.8V +/-50mV |
-| Surintensite | 25A |
-| Court-circuit | < 100us |
-| Sur-temperature | 60C |
-
----
-
-## C1-B : Securite 5 Niveaux
-
-### Architecture V1.10
-
-```
-+PACK --> BMS --> TCO 72C --> K1 --> NTC1 --> F1 --> D1+D2 --> +22V_RAW
-          N1       N2         N3     N3bis    N4      N5
-```
-
-### Niveau 1 - BMS JBD
-
-```
-+BATT_PROT --> Sortie P+ BMS
-```
-
-### Niveau 2 - TCO Thermique
-
-```
-+BATT_PROT --> TCO Aupo A4-1A-F (72C, 10A) --> +BATT_TCO
-```
-
-### Niveau 3 - Relais Coupure
-
-```
-+BATT_TCO --> K1 contact NO (HF46F-G/12-HS1) --> +BATT_K1
-K1 Bobine+ --> +BATT_TCO
-K1 Bobine- --> Q_RELAY Drain (Si2302)
-Q_RELAY Source --> GND
-Q_RELAY Gate --> RELAY_CTRL
-```
-
-**Driver opto-isole :**
-
-```
-+3V3 --> R_LED (1k) --> PC817 Anode
-PC817 Cathode --> GPIO42 (SAFE_EN)
-PC817 Collecteur --> R_PULL (10k) --> +BATT_TCO
-PC817 Emetteur --> RELAY_CTRL
-RELAY_CTRL --> R_GATE (10k) --> GND
-```
-
-### Niveau 3bis - NTC Inrush Limiter [V1.9]
-
-```
-+BATT_K1 --> NTC1 (Ametherm SL10 5R005, 5ohm@25C) --> +BATT_RELAY
-```
-
-| Parametre | Valeur |
-|-----------|--------|
-| R @ 25C | 5 ohm |
-| R @ regime | 0.1-0.5 ohm |
-| I_max | 5A continu |
-| I_peak limite | 25V / 5ohm = 5A |
-
-### Niveau 4 - Fusible
-
-```
-+BATT_RELAY --> F1 (5A ATO Fast-blow) --> +BATT_FUSED
-```
-
-### Niveau 5 - Protection Surtension
-
-```
-+BATT_FUSED --> D1 anode (SS54 Schottky)
-D1 cathode --> +22V_RAW
-+22V_RAW --> D2 (SMBJ24CA TVS) --> GND
-```
-
----
-
-## C1-C : Regulateurs
-
-### LM7812 (+12V Pre-regulateur) [V1.10: Plan cuivre]
-
-```
-+22V_RAW --> C_IN (100uF 35V) --> LM7812 IN
-LM7812 GND --> GND_STAR
-LM7812 OUT --> C_OUT (10uF) --> +12V_PRE
-```
-
-**[V1.10] Plan cuivre 15x15mm sous tab LM7812:**
-```
-Calcul thermique:
-P_max = (25.2V - 12V) x 50mA = 0.66W
-Rth_ja (avec cuivre) = 40C/W
-Tj = 40C + 0.66W x 40C/W = 66C < 125C OK
-```
-
-### LM7809 (+9V Buffer et TDA7439) [V1.10: Alimente aussi TDA7439]
-
-```
-+12V_PRE --> LM7809 IN
-LM7809 GND --> GND_STAR
-LM7809 OUT --> C_OUT (10uF) --> +9V_BUFFER
-```
-
-**Charge +9V_BUFFER V1.10:**
-```
-- OPA2134 buffer: 5mA
-- TDA7439: 35mA
-- Total: 40mA
-- P_diss = (12V - 9V) x 40mA = 0.12W OK
-```
-
-### MP1584 Buck (+5V Digital)
-
-```
-+22V_RAW --> MP1584 VIN
-MP1584 GND --> GND_STAR
-MP1584 VOUT --> +5V
-```
-
-### MCP1703A (+5V Analog)
-
-```
-+12V_PRE --> MCP1703A VIN
-MCP1703A GND --> GND_STAR
-MCP1703A VOUT --> +5V_ANALOG
-```
-
-### AMS1117-3.3 (+3V3)
-
-```
-+5V --> AMS1117 VIN
-AMS1117 GND --> GND_STAR
-AMS1117 VOUT --> +3V3
-```
-
----
-
-## C1-D : Protection PVDD MA12070
-
-```
-+22V_RAW --> D3 anode (1N5822 Schottky)
-D3 cathode --> +PVDD_SAFE
-+PVDD_SAFE --> C_PVDD (220uF 35V) --> GND
-```
-
----
-
-## C1-E : PTC Nappe [V1.9]
-
-```
-+5V --> PTC1 (MF-R075, 750mA) --> NAPPE_5V
-+3V3 --> PTC2 (MF-R050, 500mA) --> NAPPE_3V3
-```
-
-| PTC | I_hold | I_trip | R_typ |
-|-----|--------|--------|-------|
-| PTC1 | 750mA | 1.5A | 0.3 ohm |
-| PTC2 | 500mA | 1.0A | 0.5 ohm |
-
----
-
-## C1-F : Amplificateur MA12070
-
-```
-+PVDD_SAFE --> C_PVDD (220uF 35V + 10uF ceramic) --> MA12070 PVDD
-GND_STAR --> MA12070 GND
-MA12070 OUT_L+ --> L_OUT_L (10uH) --> HP_L+
-MA12070 OUT_L- --> L_OUT_L- (10uH) --> HP_L-
-MA12070 OUT_R+ --> L_OUT_R (10uH) --> HP_R+
-MA12070 OUT_R- --> L_OUT_R- (10uH) --> HP_R-
-```
-
-**ATTENTION BTL:**
-```
-HP_L- et HP_R- sont des SORTIES ACTIVES!
-NE PAS RELIER A LA MASSE!
-Mesure oscillo: SONDES DIFFERENTIELLES UNIQUEMENT!
-```
-
-**I2C Control :**
-
-```
-SDA_9V (nappe) --> MA12070 SDA
-SCL_9V (nappe) --> MA12070 SCL
-AMP_EN (nappe) --> MA12070 ENABLE
-AMP_MUTE (nappe) --> MA12070 MUTE
-MA12070 ERROR --> AMP_ERR (nappe)
-Adresse I2C : 0x20
-```
-
----
-
-## C1-G : Star Ground
-
-```
-Tous les GND convergent vers C_BULK negatif:
-- GND_BMS
-- GND_REG (regulateurs)
-- GND_AMP (MA12070)
-- GND_NAPPE_PWR
-- GND_NAPPE_SIG
-
-JAMAIS de connexion GND ailleurs que star point!
-```
-
----
-
-# CARTE 2 - SIGNAL (80 x 120 mm)
-
-## C2-A : ESP32-S3 MCU
-
-**Module :** ESP32-S3-WROOM-1-N8R8
-
-| GPIO | Fonction | Direction | Note |
-|------|----------|-----------|------|
-| 1 | SDA_3V3 | I/O | Via level shifter |
-| 2 | SCL_3V3 | OUT | Via level shifter |
-| 3 | I2S_BCK | OUT | |
-| 4 | I2S_WS | OUT | |
-| 5 | I2S_DATA | IN | |
-| 18 | ENC_A | IN | |
-| 19 | ENC_B | IN | |
-| 20 | ENC_SW | IN | |
-| 21 | IR_RX | IN | |
-| 38 | AMP_EN | OUT | |
-| 39 | AMP_MUTE | OUT | |
-| 40 | AMP_ERR | IN | |
-| 41 | MUX_S0 | OUT | |
-| 42 | SAFE_EN | OUT | |
-| 6 | ADC_BATT | ADC | |
-| 7 | ADC_NTC | ADC | |
-| 8 | POWER_FAIL | IN | [V1.10] Detection coupure |
-
----
-
-## C2-B : Level Shifter I2C [NOUVEAU V1.10]
-
-**Probleme resolu:**
-```
-TDA7439 Vcc = 9V --> V_IH = 0.7 x 9V = 6.3V minimum
-ESP32 V_OH = 3.3V
-3.3V < 6.3V --> TDA7439 ne voit pas les "1"!
-```
-
-**Solution: BSS138 bidirectionnel**
-
-### SDA Level Shifter
-
-```
-+3V3 --> R_SDA_LV (10k) --> SDA_3V3
-SDA_3V3 --> Q_SDA Source (BSS138)
-Q_SDA Gate --> +3V3
-Q_SDA Drain --> SDA_9V
-SDA_9V --> R_SDA_HV (10k) --> +9V_BUFFER
-```
-
-### SCL Level Shifter
-
-```
-+3V3 --> R_SCL_LV (10k) --> SCL_3V3
-SCL_3V3 --> Q_SCL Source (BSS138)
-Q_SCL Gate --> +3V3
-Q_SCL Drain --> SCL_9V
-SCL_9V --> R_SCL_HV (10k) --> +9V_BUFFER
-```
-
-**Fonctionnement:**
-```
-ESP32 LOW (0V):
-  - V_GS = 3.3V > V_th --> BSS138 ON
-  - SDA_9V tire a GND via BSS138
-  - TDA7439 voit LOW OK
-
-ESP32 HIGH (3.3V) ou Input:
-  - V_GS = 0V --> BSS138 OFF
-  - R_SDA_HV tire SDA_9V a 9V
-  - TDA7439 voit HIGH (9V > 6.3V) OK
-
-TDA7439 tire LOW:
-  - SDA_9V = 0V
-  - Diode body BSS138 conduit
-  - SDA_3V3 tire a ~0.7V
-  - ESP32 voit LOW OK
-```
-
-**Composants:**
-```
-Q_SDA, Q_SCL: BSS138 (SOT-23)
-R_SDA_LV, R_SCL_LV: 10k 0603
-R_SDA_HV, R_SCL_HV: 10k 0603
-```
-
----
-
-## C2-C : Bus I2C V1.10
-
-**Trois domaines de tension:**
-
-```
-Domaine 3V3 (ESP32, OLED):
-  SDA_3V3 --> ESP32 GPIO1
-  SDA_3V3 --> OLED SDA
-  SCL_3V3 --> ESP32 GPIO2
-  SCL_3V3 --> OLED SCL
-
-Domaine 9V (TDA7439):
-  SDA_9V --> Level Shifter --> SDA_3V3
-  SCL_9V --> Level Shifter --> SCL_3V3
-  SDA_9V --> TDA7439 SDA (pin 21)
-  SCL_9V --> TDA7439 SCL (pin 20)
-
-Domaine Nappe (MA12070 sur C1):
-  SDA_9V --> Nappe pin 11
-  SCL_9V --> Nappe pin 12
-```
-
-**Adresses I2C:**
-
-| Device | Adresse | Domaine |
-|--------|---------|---------|
-| OLED SSD1306 | 0x3C | 3V3 |
-| TDA7439 | 0x44 | 9V |
-| MA12070 | 0x20 | 9V (via nappe) |
-
----
-
-## C2-D : Bluetooth BTM525
-
-```
-+5V --> BTM525 VCC
-GND --> BTM525 GND
-BTM525 I2S_BCK --> GPIO3
-BTM525 I2S_WS --> GPIO4
-BTM525 I2S_DATA --> GPIO5
-```
-
----
-
-## C2-E : DAC PCM5102A
-
-```
-+3V3 --> PCM5102A VCC
-GND --> PCM5102A GND
-GPIO3 (I2S_BCK) --> PCM5102A BCK
-GPIO4 (I2S_WS) --> PCM5102A LRCK
-GPIO5 (I2S_DATA) --> PCM5102A DIN
-PCM5102A OUT_L --> DAC_L
-PCM5102A OUT_R --> DAC_R
-PCM5102A FMT --> GND (I2S standard)
-PCM5102A XSMT --> +3V3 (soft mute off)
-```
-
----
-
-## C2-F : Preampli Phono RIAA
-
-```
-PHONO_L --> C_IN_L (100nF film) --> OPA2134_RIAA IN+
-OPA2134_RIAA IN- --> Reseau RIAA
-OPA2134_RIAA OUT --> PHONO_OUT_L
-```
-
-**Reseau RIAA :**
-
-```
-R1 = 750 ohm --> C1 = 3.3nF (serie, pole 2122Hz)
-R2 = 75k --> parallele avec R1+C1 (zero 50Hz)
-C2 = 100pF // R2 (pole 21.2kHz)
-```
-
-**Alimentation OPA2134 RIAA:**
-
-```
-+5V_ANALOG --> OPA2134_RIAA V+ (pin 8)
-GND --> OPA2134_RIAA V- (pin 4)
-```
-
-**Masse virtuelle VREF [V1.10: 47uF]:**
-
-```
-+5V_ANALOG --> R_VREF_H (10k) --> VREF
-VREF --> R_VREF_L (10k) --> GND
-VREF --> C_REF (47uF film) --> GND
-
-Calcul filtre:
-fc = 1 / (2 x pi x 5k x 47uF) = 0.68Hz
-Attenuation @ 50Hz = -37dB
-Bruit residuel < 1mVrms OK
-```
-
----
-
-## C2-G : Selecteur Source CD4053
-
-```
-+5V_ANALOG --> CD4053 VCC
-GND --> CD4053 VEE, VSS
-GPIO41 (MUX_S0) --> CD4053 A, B, C
-
-CD4053 X0/Y0 --> DAC_L / DAC_R (Bluetooth)
-CD4053 X1/Y1 --> AUX_L / AUX_R
-CD4053 X2/Y2 --> PHONO_OUT_L / PHONO_OUT_R
-CD4053 X/Y --> TDA7439 IN
-```
-
----
-
-## C2-H : Processeur Audio TDA7439 [V1.10: Alim 9V]
-
-```
-+9V_BUFFER --> TDA7439 VCC (pin 18)
-GND --> TDA7439 GND (pin 15)
-SDA_9V --> TDA7439 SDA (pin 21)
-SCL_9V --> TDA7439 SCL (pin 20)
-Adresse I2C : 0x44
-```
-
-**Datasheet TDA7439:**
-```
-Vcc min = 7V, Vcc typ = 9V, Vcc max = 12V
-V_IH = 0.7 x Vcc = 6.3V @ 9V
-V_IL = 0.3 x Vcc = 2.7V @ 9V
-```
-
-**Condensateurs Frequence Coupure :**
-
-| Bande | Pin | Valeur | fc |
-|-------|-----|--------|-----|
-| Bass | 4,25 | 100nF | 159Hz |
-| Mid | 5,24 | 22nF | 723Hz |
-| Treble | 6,23 | 5.6nF | 2.84kHz |
-
----
-
-## C2-I : Buffer Sortie OPA2134 [V1.9]
-
-```
-TDA7439 OUT_L --> R_IN_L (10k) --> OPA2134_BUF IN+
-OPA2134_BUF IN- --> OPA2134_BUF OUT (suiveur)
-OPA2134_BUF OUT --> C_OUT_L (2.2uF film) --> AUDIO_L (nappe)
-```
-
-**Alimentation 9V :**
-
-```
-+9V_BUFFER --> OPA2134_BUF V+ (pin 8)
-GND --> OPA2134_BUF V- (pin 4)
-+9V_BUFFER --> C_DEC (100nF ceramic) --> GND
-```
-
-**Calcul headroom:**
-```
-Signal TDA7439 = 2Vrms = 2.83V peak
-V_swing OPA2134 @ 9V = 9V - 1.5V = 7.5V
-Headroom = 7.5V - 2.83V = 4.67V OK
-```
-
----
-
-## C2-J : Interface Utilisateur
-
-**OLED 0.96" :**
-
-```
-+3V3 --> OLED VCC
-GND --> OLED GND
-SDA_3V3 --> OLED SDA
-SCL_3V3 --> OLED SCL
-Adresse I2C : 0x3C
-```
-
-**Encodeur Rotatif :**
-
-```
-ENC_A (GPIO18) --> Encodeur A --> R (10k) --> +3V3
-ENC_B (GPIO19) --> Encodeur B --> R (10k) --> +3V3
-ENC_SW (GPIO20) --> Encodeur SW --> R (10k) --> +3V3
-Encodeur COM --> GND
-```
-
----
-
-## C2-K : Monitoring
-
-**Diviseur Batterie :**
-
-```
-+22V_SENSE (nappe) --> R_DIV_H (220k 1%) --> ADC_BATT
-ADC_BATT --> R_DIV_L (33k 1%) --> GND
-ADC_BATT --> C_FILT_BATT (100nF) --> GND
-
-V_ADC = 25.2V x 33k / (220k + 33k) = 3.29V < 3.3V OK
-```
-
-**Detecteur Coupure Alimentation [NOUVEAU V1.10]:**
-
-```
-+22V_SENSE --> R_PF1 (100k) --> COMP_IN+
-COMP_IN+ --> R_PF2 (33k) --> GND
-VREF_2V5 (TL431) --> COMP_IN-
-LM393 OUT --> GPIO8 (POWER_FAIL)
-
-Seuil detection:
-V_seuil = 2.5V x (100k + 33k) / 33k = 10V sur +22V
-Marge avant effondrement rails OK
-```
-
----
-
-# CONNECTEUR INTER-CARTES V1.10
-
-## Molex Micro-Fit 3.0 [NOUVEAU V1.10]
-
-**Justification:**
-```
-JST XH = friction lock seulement
-Vibrations (sac, voiture) --> deconnexion possible
-Si GND deconnecte avant +22V --> destruction ESP32!
-
-Molex Micro-Fit 3.0:
-- Verrouillage positif (click audible)
-- Rated vibrations automobile
-- Deconnexion impossible sans action volontaire
-```
-
-**References:**
-```
-Embase PCB C1: Molex 43045-1600 (16 pins, vertical)
-Embase PCB C2: Molex 43045-1600 (16 pins, vertical)
-Connecteur cable: Molex 43025-1600 (2x)
-Contacts: Molex 43030-0007 (16x par connecteur)
-```
-
-**Pinout:**
-
-| Pin | Signal | Direction | Note |
-|-----|--------|-----------|------|
-| 1 | 22V_SENSE | C1-->C2 | Via diviseur 220k/33k |
-| 2 | +5V | C1-->C2 | Via PTC1 750mA |
-| 3 | +3V3 | C1-->C2 | Via PTC2 500mA |
-| 4 | GND_PWR | - | Masse puissance SEULE |
-| 5 | GND_SIG | - | Masse signal SEULE |
-| 6 | GND_SHIELD | - | Blindage cable |
-| 7 | AUDIO_L | C2-->C1 | Audio gauche |
-| 8 | GND_SHIELD | - | Blindage entre canaux |
-| 9 | AUDIO_R | C2-->C1 | Audio droit |
-| 10 | GND_SHIELD | - | Blindage |
-| 11 | SDA_9V | <--> | I2C data niveau 9V |
-| 12 | SCL_9V | C2-->C1 | I2C clock niveau 9V |
-| 13 | AMP_EN | C2-->C1 | Enable ampli |
-| 14 | AMP_MUTE | C2-->C1 | Mute ampli |
-| 15 | AMP_ERR | C1-->C2 | Erreur ampli |
-| 16 | SAFE_EN | C2-->C1 | Controle relais |
-
-**Separation masses:**
-```
-GND_PWR (pin 4): ESP32, BT, digital uniquement
-GND_SIG (pin 5): DAC, TDA7439, OPA2134, RIAA uniquement
-Jonction UNIQUE sur C1 au star point (C_BULK negatif)
-```
-
----
-
-# BOM COMPLETE V1.10
-
-## Semiconducteurs
-
-| Ref | Composant | Valeur/Type | Package | Qte |
-|-----|-----------|-------------|---------|-----|
-| U1 | MA12070 | Ampli Class-D | QFN-48 | 1 |
-| U2 | OPA2134PA | Op-Amp audio | DIP-8 | 2 |
-| U3 | TDA7439 | Processeur audio | DIP-30 | 1 |
-| U4 | CD4053BE | MUX analogique | DIP-16 | 1 |
-| U5 | AMS1117-3.3 | LDO 3.3V | SOT-223 | 1 |
-| U6 | LM7812 | Regulateur 12V | TO-220 | 1 |
-| U7 | MCP1703A-5002 | LDO 5V low-noise | TO-92 | 1 |
-| U8 | LM7809 | Regulateur 9V | TO-220 | 1 |
-| U9 | ESP32-S3-WROOM | MCU | Module | 1 |
-| U10 | BTM525 | Bluetooth LDAC | Module | 1 |
-| U11 | PCM5102A | DAC I2S | TSSOP-20 | 1 |
-| U12 | LM393 | Comparateur | DIP-8 | 1 |
-| U13 | TL431 | Reference 2.5V | TO-92 | 1 |
-| Q_SDA | BSS138 | N-MOS Level Shift | SOT-23 | 1 |
-| Q_SCL | BSS138 | N-MOS Level Shift | SOT-23 | 1 |
-| Q_RELAY | Si2302 | N-MOS driver | SOT-23 | 1 |
-| D1 | SS54 | Schottky 40V 5A | SMA | 1 |
-| D2 | SMBJ24CA | TVS 24V 600W | SMB | 1 |
-| D3 | 1N5822 | Schottky 40V 3A | DO-201 | 1 |
-
-## Passifs Critiques
-
-| Ref | Valeur | Tolerance | Type | Qte |
-|-----|--------|-----------|------|-----|
-| C_BULK | 220uF 35V | 20% | Electro low-ESR | 1 |
-| C_PVDD | 220uF 35V | 20% | Electro low-ESR | 1 |
-| C_REF | 47uF | 10% | Film | 1 |
-| C_OUT_L/R | 2.2uF | 5% | Film | 2 |
-| R_SDA_LV | 10k | 1% | 0603 | 1 |
-| R_SDA_HV | 10k | 1% | 0603 | 1 |
-| R_SCL_LV | 10k | 1% | 0603 | 1 |
-| R_SCL_HV | 10k | 1% | 0603 | 1 |
-
-## Protection
-
-| Ref | Composant | Valeur | Qte |
-|-----|-----------|--------|-----|
-| NTC1 | Ametherm SL10 5R005 | 5ohm @ 25C | 1 |
-| PTC1 | Bourns MF-R075 | 750mA | 1 |
-| PTC2 | Bourns MF-R050 | 500mA | 1 |
-| F1 | Fusible ATO | 5A Fast-blow | 1 |
-| TCO | Aupo A4-1A-F | 72C 10A | 1 |
-
-## Connecteurs
-
-| Ref | Composant | Qte |
-|-----|-----------|-----|
-| J_INTER | Molex 43045-1600 | 2 |
-| J_INTER_PLUG | Molex 43025-1600 | 2 |
-| J_INTER_CONTACT | Molex 43030-0007 | 32 |
-| K1 | HF46F-G/12-HS1 | 1 |
-
----
-
-# NOTES CONCEPTION V1.10
-
-## Separation Masses (Anti-Motorboating)
-
-```
-CARTE 2:
-- Plan GND_PWR: ESP32, BTM525, MP1584
-- Plan GND_SIG: PCM5102A, TDA7439, OPA2134, CD4053
-- AUCUNE connexion entre plans sur C2!
-
-NAPPE:
-- Pin 4 (GND_PWR) separe de Pin 5 (GND_SIG)
-
-CARTE 1:
-- GND_PWR et GND_SIG arrivent separes
-- Jonction UNIQUE au star point (C_BULK negatif)
-```
-
-## Layout LM7812 [V1.10]
-
-```
-Plan cuivre 15x15mm minimum sous tab TO-220
-Relie au GND par vias multiples
-Dissipation thermique gratuite
-```
-
-## Sequence Extinction (voir Firmware)
-
-```
-1. MUTE MA12070 (AMP_MUTE = HIGH)
-2. Attendre 50ms
-3. DISABLE MA12070 (AMP_EN = LOW)
-4. Attendre 100ms
-5. RELAY OFF (SAFE_EN = LOW)
-```
-
----
-
-# WARNINGS CRITIQUES
-
-## Mesure Oscilloscope
-
-```
-!!! ATTENTION BTL !!!
-
-HP_L- et HP_R- sont des SORTIES ACTIVES!
-Elles oscillent en opposition de phase avec HP_L+ et HP_R+.
-
-Si sonde oscillo (terre secteur) touche HP_L-:
---> Court-circuit via terre PC (USB debug)
---> Destruction MA12070 possible!
-
-SOLUTIONS:
-1. Sondes differentielles UNIQUEMENT sur HP
-2. OU debrancher USB avant mesure HP
-3. OU isolateur USB galvanique
-```
-
-## Vibrations Transport
-
-```
-Molex Micro-Fit 3.0 = verrouillage positif
-Verifier click audible a chaque connexion
-Ne JAMAIS transporter avec connecteur mal enfiche
-```
+/*
+ * ============================================================================
+ * FIRMWARE AMPLI AUDIOPHILE PORTABLE V1.10
+ * ============================================================================
+ * 
+ * Date: 14 decembre 2025
+ * Auteur: Mehdi
+ * MCU: ESP32-S3-WROOM-1-N8R8
+ * Framework: Arduino
+ * 
+ * ============================================================================
+ * CHANGELOG V1.10
+ * ============================================================================
+ * 
+ * [A1] Sequence extinction anti-plop: MUTE -> EN -> RELAY
+ * [A2] Detection coupure alimentation via GPIO8 (POWER_FAIL)
+ * [A3] Interrupt POWER_FAIL pour MUTE immediat
+ * [A4] Timeout I2C augmente pour level shifter
+ * 
+ * Rappel V1.9:
+ * [S1] I2C recovery open-drain (INPUT, pas OUTPUT+HIGH)
+ * [D1] NTC fail-safe: 50% volume si capteur HS
+ * [D2] Flag i2cHardwareFault
+ * [P0] Filtre median ADC
+ * [P1] Sections critiques portMUX encoder
+ * [P2] Compteur erreurs I2C
+ * 
+ * ============================================================================
+ */
+
+#include <Wire.h>
+#include <Preferences.h>
+
+// ============================================================================
+// CONFIGURATION PINS
+// ============================================================================
+
+// I2C (niveau 3.3V cote ESP32, level shifter vers 9V)
+#define PIN_SDA           1
+#define PIN_SCL           2
+
+// I2S Audio
+#define PIN_I2S_BCK       3
+#define PIN_I2S_WS        4
+#define PIN_I2S_DATA      5
+
+// ADC
+#define PIN_ADC_BATT      6
+#define PIN_ADC_NTC       7
+
+// [V1.10] Detection coupure alimentation
+#define PIN_POWER_FAIL    8
+
+// Encodeur
+#define PIN_ENC_A         18
+#define PIN_ENC_B         19
+#define PIN_ENC_SW        20
+
+// IR
+#define PIN_IR_RX         21
+
+// Controle Ampli MA12070
+#define PIN_AMP_EN        38
+#define PIN_AMP_MUTE      39
+#define PIN_AMP_ERR       40
+
+// Controle Source
+#define PIN_MUX_S0        41
+
+// Controle Relais
+#define PIN_SAFE_EN       42
+
+// ============================================================================
+// ADRESSES I2C
+// ============================================================================
+
+#define I2C_ADDR_MA12070  0x20    // Ampli Class-D (domaine 9V)
+#define I2C_ADDR_OLED     0x3C    // OLED SSD1306 (domaine 3.3V)
+#define I2C_ADDR_TDA7439  0x44    // Processeur audio (domaine 9V)
+
+// ============================================================================
+// CONSTANTES SYSTEME
+// ============================================================================
+
+// Volume
+#define VOLUME_MIN        0
+#define VOLUME_MAX        100
+#define VOLUME_DEFAULT    30
+#define VOLUME_FAILSAFE   50      // [V1.9] Limite si NTC HS
+
+// Temperature (NTC 10k B3950)
+#define NTC_NOMINAL_R     10000.0f
+#define NTC_NOMINAL_TEMP  25.0f
+#define NTC_BETA          3950.0f
+#define NTC_PULLUP        10000.0f
+
+#define TEMP_WARNING      50.0f   // Reduire volume 20%
+#define TEMP_CRITICAL     65.0f   // Reduire volume 50%
+#define TEMP_SHUTDOWN     75.0f   // Arret urgence
+#define TEMP_FAIL_LOW     -20.0f  // NTC deconnecte
+#define TEMP_FAIL_HIGH    120.0f  // NTC court-circuit
+
+// ADC
+#define ADC_RESOLUTION    12
+#define ADC_MAX           4095
+#define ADC_VREF          3.3f
+#define ADC_MEDIAN_SIZE   5       // [V1.9] Filtre median
+
+// Batterie
+#define BATT_DIVIDER      7.666f  // (220k + 33k) / 33k
+#define BATT_FULL         25.2f   // 6S charge complete
+#define BATT_EMPTY        18.0f   // 6S decharge
+
+// Timeouts
+#define I2C_TIMEOUT_MS    50      // [V1.10] Augmente pour level shifter
+#define WATCHDOG_TIMEOUT  5000    // 5 secondes
+
+// [V1.10] Timings sequence extinction
+#define MUTE_DELAY_MS     50      // Attente apres MUTE
+#define DISABLE_DELAY_MS  100     // Attente apres DISABLE
+#define SHUTDOWN_DELAY_MS 50      // Attente avant coupure relay
+
+// ============================================================================
+// TYPES ET STRUCTURES
+// ============================================================================
+
+typedef enum {
+    SOURCE_BLUETOOTH = 0,
+    SOURCE_AUX = 1,
+    SOURCE_PHONO = 2
+} AudioSource_t;
+
+typedef enum {
+    AMP_STATE_OFF = 0,
+    AMP_STATE_STARTING,
+    AMP_STATE_RUNNING,
+    AMP_STATE_MUTED,
+    AMP_STATE_THERMAL_WARNING,
+    AMP_STATE_THERMAL_CRITICAL,
+    AMP_STATE_SHUTDOWN,
+    AMP_STATE_ERROR
+} AmpState_t;
+
+typedef struct {
+    float temperature;
+    bool isValid;
+    bool isFailed;
+} TempStatus_t;
+
+// ============================================================================
+// VARIABLES GLOBALES
+// ============================================================================
+
+// Etat systeme
+volatile AmpState_t ampState = AMP_STATE_OFF;
+volatile bool powerFailDetected = false;    // [V1.10]
+volatile bool shutdownRequested = false;    // [V1.10]
+
+// Audio
+uint8_t currentVolume = VOLUME_DEFAULT;
+AudioSource_t currentSource = SOURCE_BLUETOOTH;
+int8_t eqBass = 0;
+int8_t eqMid = 0;
+int8_t eqTreble = 0;
+
+// Temperature
+TempStatus_t tempStatus = {25.0f, true, false};
+
+// Encodeur
+volatile int32_t encoderPosition = 0;
+volatile bool encoderButtonPressed = false;
+portMUX_TYPE encoderMux = portMUX_INITIALIZER_UNLOCKED;
+
+// I2C
+bool i2cInitialized = false;
+bool i2cHardwareFault = false;              // [V1.9]
+uint16_t i2cErrorCount = 0;
+
+// ADC buffers pour filtre median [V1.9]
+uint16_t adcBattBuffer[ADC_MEDIAN_SIZE];
+uint16_t adcNtcBuffer[ADC_MEDIAN_SIZE];
+uint8_t adcBufferIndex = 0;
+
+// Preferences
+Preferences preferences;
+
+// ============================================================================
+// PROTOTYPES
+// ============================================================================
+
+// Initialisation
+void initGPIO(void);
+void initI2C(void);
+void initADC(void);
+void initEncoder(void);
+void initWatchdog(void);
+
+// I2C
+bool i2cWrite(uint8_t addr, uint8_t reg, uint8_t data);
+bool i2cRead(uint8_t addr, uint8_t reg, uint8_t* data);
+bool i2cRecovery(void);
+bool i2cScan(void);
+
+// Ampli MA12070
+void initMA12070(void);
+void enableMA12070(bool enable);
+void setMA12070Mute(bool mute);
+void setMA12070Volume(uint8_t vol);
+
+// Audio TDA7439
+void initTDA7439(void);
+void setTDA7439Source(AudioSource_t source);
+void setTDA7439Volume(uint8_t vol);
+void setTDA7439Bass(int8_t db);
+void setTDA7439Mid(int8_t db);
+void setTDA7439Treble(int8_t db);
+
+// Controle global
+void setVolume(uint8_t vol);
+void setSource(AudioSource_t source);
+void applyThermalLimits(void);
+
+// [V1.10] Sequence extinction
+void startShutdownSequence(void);
+void emergencyMute(void);
+
+// Mesures
+float readBatteryVoltage(void);
+float readTemperature(void);
+uint16_t medianFilter(uint16_t* buffer, uint8_t size);
+
+// Encodeur
+void IRAM_ATTR encoderISR(void);
+void IRAM_ATTR buttonISR(void);
+int32_t readEncoderDelta(void);
+
+// [V1.10] Power fail interrupt
+void IRAM_ATTR powerFailISR(void);
+
+// ============================================================================
+// INTERRUPTS
+// ============================================================================
+
+/**
+ * [V1.10] Interrupt sur detection coupure alimentation
+ * Active MUTE immediatement pour eviter plop
+ */
+void IRAM_ATTR powerFailISR(void) {
+    powerFailDetected = true;
+    
+    // MUTE IMMEDIAT - pas d'I2C, juste GPIO
+    digitalWrite(PIN_AMP_MUTE, HIGH);
+}
+
+/**
+ * Interrupt encodeur rotatif avec protection mutex
+ */
+void IRAM_ATTR encoderISR(void) {
+    portENTER_CRITICAL_ISR(&encoderMux);
+    
+    static uint8_t lastState = 0;
+    uint8_t a = digitalRead(PIN_ENC_A);
+    uint8_t b = digitalRead(PIN_ENC_B);
+    uint8_t state = (a << 1) | b;
+    
+    // Table de transition Gray code
+    static const int8_t transTable[] = {
+        0, -1, 1, 0,
+        1, 0, 0, -1,
+        -1, 0, 0, 1,
+        0, 1, -1, 0
+    };
+    
+    encoderPosition += transTable[(lastState << 2) | state];
+    lastState = state;
+    
+    portEXIT_CRITICAL_ISR(&encoderMux);
+}
+
+/**
+ * Interrupt bouton encodeur
+ */
+void IRAM_ATTR buttonISR(void) {
+    encoderButtonPressed = true;
+}
+
+// ============================================================================
+// INITIALISATION
+// ============================================================================
+
+void initGPIO(void) {
+    // Sorties controle ampli
+    pinMode(PIN_AMP_EN, OUTPUT);
+    pinMode(PIN_AMP_MUTE, OUTPUT);
+    pinMode(PIN_MUX_S0, OUTPUT);
+    pinMode(PIN_SAFE_EN, OUTPUT);
+    
+    // Etat initial securise
+    digitalWrite(PIN_AMP_EN, LOW);      // Ampli OFF
+    digitalWrite(PIN_AMP_MUTE, HIGH);   // MUTE ON
+    digitalWrite(PIN_SAFE_EN, LOW);     // Relay OFF
+    
+    // Entrees
+    pinMode(PIN_AMP_ERR, INPUT);
+    pinMode(PIN_ENC_A, INPUT_PULLUP);
+    pinMode(PIN_ENC_B, INPUT_PULLUP);
+    pinMode(PIN_ENC_SW, INPUT_PULLUP);
+    pinMode(PIN_IR_RX, INPUT);
+    
+    // [V1.10] Power fail detection
+    pinMode(PIN_POWER_FAIL, INPUT);
+    attachInterrupt(digitalPinToInterrupt(PIN_POWER_FAIL), powerFailISR, FALLING);
+    
+    Serial.println("GPIO: Initialise");
+}
+
+void initI2C(void) {
+    Wire.begin(PIN_SDA, PIN_SCL);
+    Wire.setClock(400000);  // 400kHz Fast mode
+    Wire.setTimeout(I2C_TIMEOUT_MS);
+    
+    // Scan bus
+    Serial.println("I2C: Scan bus...");
+    
+    bool oledFound = false;
+    bool tdaFound = false;
+    bool ampFound = false;
+    
+    // Test OLED (3.3V)
+    Wire.beginTransmission(I2C_ADDR_OLED);
+    if (Wire.endTransmission() == 0) {
+        oledFound = true;
+        Serial.println("I2C: OLED trouve @ 0x3C");
+    }
+    
+    // Test TDA7439 (9V via level shifter)
+    Wire.beginTransmission(I2C_ADDR_TDA7439);
+    if (Wire.endTransmission() == 0) {
+        tdaFound = true;
+        Serial.println("I2C: TDA7439 trouve @ 0x44");
+    }
+    
+    // Test MA12070 (9V via nappe)
+    Wire.beginTransmission(I2C_ADDR_MA12070);
+    if (Wire.endTransmission() == 0) {
+        ampFound = true;
+        Serial.println("I2C: MA12070 trouve @ 0x20");
+    }
+    
+    if (!oledFound || !tdaFound) {
+        Serial.println("I2C: Device manquant, tentative recovery...");
+        if (i2cRecovery()) {
+            Serial.println("I2C: Recovery reussi");
+        } else {
+            Serial.println("I2C: Recovery echec - mode degrade");
+            i2cHardwareFault = true;
+        }
+    }
+    
+    i2cInitialized = true;
+}
+
+/**
+ * [V1.9] I2C Recovery conforme open-drain
+ * JAMAIS de OUTPUT + HIGH sur SDA!
+ */
+bool i2cRecovery(void) {
+    Serial.println("I2C Recovery: Debut sequence...");
+    
+    // Relacher SDA (INPUT = haute impedance, pullup tire a HIGH)
+    pinMode(PIN_SDA, INPUT);
+    
+    // Generer 9 pulses clock
+    pinMode(PIN_SCL, OUTPUT);
+    
+    for (int i = 0; i < 9; i++) {
+        digitalWrite(PIN_SCL, HIGH);
+        delayMicroseconds(5);
+        
+        // Verifier si SDA est libere
+        if (digitalRead(PIN_SDA) == HIGH) {
+            Serial.printf("I2C Recovery: SDA libre apres %d clocks\n", i + 1);
+            break;
+        }
+        
+        digitalWrite(PIN_SCL, LOW);
+        delayMicroseconds(5);
+    }
+    
+    // Generer condition STOP
+    pinMode(PIN_SDA, OUTPUT);
+    digitalWrite(PIN_SDA, LOW);
+    delayMicroseconds(5);
+    digitalWrite(PIN_SCL, HIGH);
+    delayMicroseconds(5);
+    pinMode(PIN_SDA, INPUT);  // Relacher SDA - pullup tire HIGH = STOP
+    delayMicroseconds(5);
+    
+    // Reinitialiser Wire
+    Wire.begin(PIN_SDA, PIN_SCL);
+    Wire.setClock(400000);
+    
+    // Verifier si bus OK
+    Wire.beginTransmission(I2C_ADDR_OLED);
+    bool success = (Wire.endTransmission() == 0);
+    
+    if (success) {
+        Serial.println("I2C Recovery: SUCCES");
+    } else {
+        Serial.println("I2C Recovery: ECHEC");
+        i2cErrorCount++;
+    }
+    
+    return success;
+}
+
+void initADC(void) {
+    analogReadResolution(ADC_RESOLUTION);
+    analogSetAttenuation(ADC_11db);
+    
+    // Remplir buffers avec premieres lectures
+    for (int i = 0; i < ADC_MEDIAN_SIZE; i++) {
+        adcBattBuffer[i] = analogRead(PIN_ADC_BATT);
+        adcNtcBuffer[i] = analogRead(PIN_ADC_NTC);
+    }
+    
+    Serial.println("ADC: Initialise");
+}
+
+void initEncoder(void) {
+    attachInterrupt(digitalPinToInterrupt(PIN_ENC_A), encoderISR, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(PIN_ENC_B), encoderISR, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(PIN_ENC_SW), buttonISR, FALLING);
+    
+    Serial.println("Encoder: Initialise");
+}
+
+void initWatchdog(void) {
+    esp_task_wdt_init(WATCHDOG_TIMEOUT / 1000, true);
+    esp_task_wdt_add(NULL);
+    
+    Serial.println("Watchdog: Initialise (5s)");
+}
+
+// ============================================================================
+// I2C FONCTIONS
+// ============================================================================
+
+bool i2cWrite(uint8_t addr, uint8_t reg, uint8_t data) {
+    if (i2cHardwareFault) return false;
+    
+    Wire.beginTransmission(addr);
+    Wire.write(reg);
+    Wire.write(data);
+    uint8_t error = Wire.endTransmission();
+    
+    if (error != 0) {
+        i2cErrorCount++;
+        Serial.printf("I2C Write Error: addr=0x%02X reg=0x%02X err=%d\n", addr, reg, error);
+        
+        if (i2cErrorCount > 10) {
+            i2cHardwareFault = true;
+            Serial.println("I2C: Trop d'erreurs - mode degrade");
+        }
+        return false;
+    }
+    
+    return true;
+}
+
+bool i2cRead(uint8_t addr, uint8_t reg, uint8_t* data) {
+    if (i2cHardwareFault) return false;
+    
+    Wire.beginTransmission(addr);
+    Wire.write(reg);
+    if (Wire.endTransmission(false) != 0) {
+        i2cErrorCount++;
+        return false;
+    }
+    
+    if (Wire.requestFrom(addr, (uint8_t)1) != 1) {
+        i2cErrorCount++;
+        return false;
+    }
+    
+    *data = Wire.read();
+    return true;
+}
+
+// ============================================================================
+// MA12070 CONTROLE
+// ============================================================================
+
+void initMA12070(void) {
+    // Enable avec MUTE actif
+    digitalWrite(PIN_AMP_MUTE, HIGH);
+    delay(10);
+    digitalWrite(PIN_AMP_EN, HIGH);
+    delay(100);  // Temps de demarrage MA12070
+    
+    // Configuration I2C
+    i2cWrite(I2C_ADDR_MA12070, 0x00, 0x00);  // Power mode normal
+    i2cWrite(I2C_ADDR_MA12070, 0x01, 0x20);  // Volume initial -32dB
+    
+    Serial.println("MA12070: Initialise");
+}
+
+void enableMA12070(bool enable) {
+    if (enable) {
+        digitalWrite(PIN_AMP_EN, HIGH);
+        delay(50);
+    } else {
+        digitalWrite(PIN_AMP_EN, LOW);
+    }
+}
+
+void setMA12070Mute(bool mute) {
+    digitalWrite(PIN_AMP_MUTE, mute ? HIGH : LOW);
+}
+
+void setMA12070Volume(uint8_t vol) {
+    // MA12070: 0x00 = 0dB, 0x18 = -24dB, 0x30 = -48dB
+    uint8_t regVal = (100 - vol) * 0x30 / 100;
+    i2cWrite(I2C_ADDR_MA12070, 0x01, regVal);
+}
+
+// ============================================================================
+// TDA7439 CONTROLE
+// ============================================================================
+
+void initTDA7439(void) {
+    // Volume initial
+    setTDA7439Volume(currentVolume);
+    
+    // Source par defaut
+    setTDA7439Source(SOURCE_BLUETOOTH);
+    
+    // EQ plat
+    setTDA7439Bass(0);
+    setTDA7439Mid(0);
+    setTDA7439Treble(0);
+    
+    Serial.println("TDA7439: Initialise");
+}
+
+void setTDA7439Source(AudioSource_t source) {
+    // Registre 0x00 = Input selector
+    // 0 = IN1, 1 = IN2, 2 = IN3
+    i2cWrite(I2C_ADDR_TDA7439, 0x00, (uint8_t)source);
+}
+
+void setTDA7439Volume(uint8_t vol) {
+    // Registre 0x02 = Volume
+    // 0x00 = 0dB, 0x38 = -56dB
+    uint8_t regVal = (100 - vol) * 56 / 100;
+    i2cWrite(I2C_ADDR_TDA7439, 0x02, regVal);
+}
+
+void setTDA7439Bass(int8_t db) {
+    // Registre 0x03 = Bass
+    // 0x00 = -14dB, 0x07 = 0dB, 0x0E = +14dB
+    if (db < -14) db = -14;
+    if (db > 14) db = 14;
+    uint8_t regVal = (db + 14) / 2;
+    i2cWrite(I2C_ADDR_TDA7439, 0x03, regVal);
+    eqBass = db;
+}
+
+void setTDA7439Mid(int8_t db) {
+    // Registre 0x04 = Mid
+    if (db < -14) db = -14;
+    if (db > 14) db = 14;
+    uint8_t regVal = (db + 14) / 2;
+    i2cWrite(I2C_ADDR_TDA7439, 0x04, regVal);
+    eqMid = db;
+}
+
+void setTDA7439Treble(int8_t db) {
+    // Registre 0x05 = Treble
+    if (db < -14) db = -14;
+    if (db > 14) db = 14;
+    uint8_t regVal = (db + 14) / 2;
+    i2cWrite(I2C_ADDR_TDA7439, 0x05, regVal);
+    eqTreble = db;
+}
+
+// ============================================================================
+// CONTROLE GLOBAL
+// ============================================================================
+
+void setVolume(uint8_t vol) {
+    if (vol > VOLUME_MAX) vol = VOLUME_MAX;
+    
+    // [V1.9] Limite si NTC defaillant
+    if (tempStatus.isFailed && vol > VOLUME_FAILSAFE) {
+        vol = VOLUME_FAILSAFE;
+        Serial.println("Volume: Limite 50% (NTC HS)");
+    }
+    
+    // Appliquer limites thermiques
+    if (tempStatus.isValid) {
+        if (tempStatus.temperature > TEMP_CRITICAL) {
+            vol = vol / 2;  // -50%
+        } else if (tempStatus.temperature > TEMP_WARNING) {
+            vol = vol * 80 / 100;  // -20%
+        }
+    }
+    
+    currentVolume = vol;
+    setTDA7439Volume(vol);
+    setMA12070Volume(vol);
+}
+
+void setSource(AudioSource_t source) {
+    // Mute pendant changement
+    setMA12070Mute(true);
+    delay(50);
+    
+    // Changer source
+    setTDA7439Source(source);
+    currentSource = source;
+    
+    // GPIO MUX
+    digitalWrite(PIN_MUX_S0, source == SOURCE_PHONO ? HIGH : LOW);
+    
+    delay(50);
+    setMA12070Mute(false);
+}
+
+// ============================================================================
+// [V1.10] SEQUENCE EXTINCTION ANTI-PLOP
+// ============================================================================
+
+/**
+ * Sequence d'extinction ordonnee pour eviter le "plop"
+ * 
+ * Ordre CRITIQUE:
+ * 1. MUTE d'abord (coupe audio)
+ * 2. DISABLE ampli (sorties haute impedance)
+ * 3. Couper relay (plus de courant)
+ * 
+ * Cela evite les transitoires DC dans les HP
+ */
+void startShutdownSequence(void) {
+    Serial.println("Shutdown: Debut sequence...");
+    
+    ampState = AMP_STATE_SHUTDOWN;
+    
+    // Etape 1: MUTE immediat
+    setMA12070Mute(true);
+    Serial.println("Shutdown: MUTE active");
+    delay(MUTE_DELAY_MS);
+    
+    // Etape 2: Desactiver ampli
+    enableMA12070(false);
+    Serial.println("Shutdown: Ampli desactive");
+    delay(DISABLE_DELAY_MS);
+    
+    // Etape 3: Couper relay
+    digitalWrite(PIN_SAFE_EN, LOW);
+    Serial.println("Shutdown: Relay coupe");
+    delay(SHUTDOWN_DELAY_MS);
+    
+    ampState = AMP_STATE_OFF;
+    Serial.println("Shutdown: Complete");
+}
+
+/**
+ * MUTE d'urgence sur detection coupure alimentation
+ * Appele depuis ISR ou en urgence
+ */
+void emergencyMute(void) {
+    // GPIO direct - pas d'I2C (trop lent pour urgence)
+    digitalWrite(PIN_AMP_MUTE, HIGH);
+    
+    // Desactiver aussi
+    digitalWrite(PIN_AMP_EN, LOW);
+    
+    Serial.println("EMERGENCY: Mute active!");
+}
+
+// ============================================================================
+// MESURES
+// ============================================================================
+
+/**
+ * Filtre median pour rejeter les spikes [V1.9]
+ */
+uint16_t medianFilter(uint16_t* buffer, uint8_t size) {
+    // Copier et trier
+    uint16_t sorted[ADC_MEDIAN_SIZE];
+    memcpy(sorted, buffer, size * sizeof(uint16_t));
+    
+    // Bubble sort (petit tableau)
+    for (uint8_t i = 0; i < size - 1; i++) {
+        for (uint8_t j = 0; j < size - i - 1; j++) {
+            if (sorted[j] > sorted[j + 1]) {
+                uint16_t tmp = sorted[j];
+                sorted[j] = sorted[j + 1];
+                sorted[j + 1] = tmp;
+            }
+        }
+    }
+    
+    return sorted[size / 2];
+}
+
+float readBatteryVoltage(void) {
+    // Ajouter nouvelle lecture au buffer
+    adcBattBuffer[adcBufferIndex % ADC_MEDIAN_SIZE] = analogRead(PIN_ADC_BATT);
+    
+    // Filtre median
+    uint16_t adcFiltered = medianFilter(adcBattBuffer, ADC_MEDIAN_SIZE);
+    
+    float voltage = (adcFiltered * ADC_VREF / ADC_MAX) * BATT_DIVIDER;
+    return voltage;
+}
+
+float readTemperature(void) {
+    // Ajouter nouvelle lecture au buffer
+    adcNtcBuffer[adcBufferIndex % ADC_MEDIAN_SIZE] = analogRead(PIN_ADC_NTC);
+    adcBufferIndex++;
+    
+    // Filtre median
+    uint16_t adcFiltered = medianFilter(adcNtcBuffer, ADC_MEDIAN_SIZE);
+    
+    float voltage = adcFiltered * ADC_VREF / ADC_MAX;
+    
+    // Protection division par zero
+    if (voltage < 0.1f) {
+        tempStatus.isValid = false;
+        tempStatus.isFailed = true;
+        return TEMP_FAIL_HIGH;
+    }
+    
+    if (voltage > (ADC_VREF - 0.1f)) {
+        tempStatus.isValid = false;
+        tempStatus.isFailed = true;
+        return TEMP_FAIL_LOW;
+    }
+    
+    // Calcul resistance NTC
+    float ntcResistance = NTC_PULLUP * voltage / (ADC_VREF - voltage);
+    
+    // Equation Steinhart-Hart simplifiee (Beta)
+    float steinhart = ntcResistance / NTC_NOMINAL_R;
+    steinhart = log(steinhart);
+    steinhart /= NTC_BETA;
+    steinhart += 1.0f / (NTC_NOMINAL_TEMP + 273.15f);
+    steinhart = 1.0f / steinhart;
+    steinhart -= 273.15f;
+    
+    // Validation plage
+    if (steinhart < TEMP_FAIL_LOW || steinhart > TEMP_FAIL_HIGH) {
+        tempStatus.isValid = false;
+        tempStatus.isFailed = true;
+    } else {
+        tempStatus.isValid = true;
+        tempStatus.isFailed = false;
+        tempStatus.temperature = steinhart;
+    }
+    
+    return steinhart;
+}
+
+// ============================================================================
+// ENCODEUR
+// ============================================================================
+
+int32_t readEncoderDelta(void) {
+    portENTER_CRITICAL(&encoderMux);
+    int32_t delta = encoderPosition;
+    encoderPosition = 0;
+    portEXIT_CRITICAL(&encoderMux);
+    return delta;
+}
+
+// ============================================================================
+// STARTUP SEQUENCE
+// ============================================================================
+
+void startup(void) {
+    Serial.println("\n=== AMPLI AUDIOPHILE V1.10 ===");
+    Serial.println("Corrections: Level Shifter I2C, Anti-Plop, Molex");
+    Serial.println("");
+    
+    // Verifier pas de power fail au demarrage
+    if (digitalRead(PIN_POWER_FAIL) == LOW) {
+        Serial.println("ERREUR: Tension insuffisante au demarrage!");
+        return;
+    }
+    
+    // Activer relay (alimente le circuit)
+    digitalWrite(PIN_SAFE_EN, HIGH);
+    Serial.println("Relay: Active");
+    delay(500);  // Attendre stabilisation + NTC chauffe
+    
+    // Initialiser I2C
+    initI2C();
+    
+    // Initialiser peripheriques audio
+    initTDA7439();
+    initMA12070();
+    
+    // Demarrer ampli (toujours MUTE d'abord)
+    setMA12070Mute(true);
+    enableMA12070(true);
+    delay(100);
+    
+    // Appliquer volume initial
+    setVolume(currentVolume);
+    
+    // Unmute
+    setMA12070Mute(false);
+    
+    ampState = AMP_STATE_RUNNING;
+    Serial.println("Startup: Complete");
+}
+
+// ============================================================================
+// SETUP
+// ============================================================================
+
+void setup() {
+    Serial.begin(115200);
+    delay(100);
+    
+    initGPIO();
+    initADC();
+    initEncoder();
+    initWatchdog();
+    
+    // Charger preferences
+    preferences.begin("ampli", true);
+    currentVolume = preferences.getUChar("volume", VOLUME_DEFAULT);
+    currentSource = (AudioSource_t)preferences.getUChar("source", SOURCE_BLUETOOTH);
+    eqBass = preferences.getChar("bass", 0);
+    eqMid = preferences.getChar("mid", 0);
+    eqTreble = preferences.getChar("treble", 0);
+    preferences.end();
+    
+    // Demarrage
+    startup();
+}
+
+// ============================================================================
+// LOOP
+// ============================================================================
+
+void loop() {
+    static uint32_t lastTempCheck = 0;
+    static uint32_t lastBattCheck = 0;
+    
+    // Reset watchdog
+    esp_task_wdt_reset();
+    
+    // [V1.10] Gestion coupure alimentation detectee
+    if (powerFailDetected) {
+        Serial.println("POWER FAIL DETECTE!");
+        emergencyMute();
+        ampState = AMP_STATE_SHUTDOWN;
+        // Ne pas continuer - attendre coupure complete
+        while(1) { delay(10); }
+    }
+    
+    // Gestion demande extinction
+    if (shutdownRequested) {
+        startShutdownSequence();
+        shutdownRequested = false;
+    }
+    
+    // Lecture encodeur
+    int32_t delta = readEncoderDelta();
+    if (delta != 0) {
+        int16_t newVol = (int16_t)currentVolume + delta;
+        if (newVol < VOLUME_MIN) newVol = VOLUME_MIN;
+        if (newVol > VOLUME_MAX) newVol = VOLUME_MAX;
+        setVolume((uint8_t)newVol);
+    }
+    
+    // Bouton encodeur
+    if (encoderButtonPressed) {
+        encoderButtonPressed = false;
+        // TODO: Menu ou changement source
+    }
+    
+    // Lecture temperature (toutes les 1s)
+    if (millis() - lastTempCheck > 1000) {
+        lastTempCheck = millis();
+        float temp = readTemperature();
+        
+        if (tempStatus.isValid) {
+            if (temp > TEMP_SHUTDOWN) {
+                Serial.println("THERMAL SHUTDOWN!");
+                startShutdownSequence();
+            } else if (temp > TEMP_CRITICAL) {
+                ampState = AMP_STATE_THERMAL_CRITICAL;
+                setVolume(currentVolume);  // Reapplique limites
+            } else if (temp > TEMP_WARNING) {
+                ampState = AMP_STATE_THERMAL_WARNING;
+                setVolume(currentVolume);
+            } else if (ampState == AMP_STATE_THERMAL_WARNING || 
+                       ampState == AMP_STATE_THERMAL_CRITICAL) {
+                ampState = AMP_STATE_RUNNING;
+            }
+        }
+        
+        // [V1.9] NTC fail-safe
+        if (tempStatus.isFailed && currentVolume > VOLUME_FAILSAFE) {
+            setVolume(VOLUME_FAILSAFE);
+        }
+    }
+    
+    // Lecture batterie (toutes les 5s)
+    if (millis() - lastBattCheck > 5000) {
+        lastBattCheck = millis();
+        float batt = readBatteryVoltage();
+        
+        if (batt < BATT_EMPTY) {
+            Serial.println("Batterie faible - shutdown");
+            startShutdownSequence();
+        }
+    }
+    
+    // Verifier erreur ampli
+    if (digitalRead(PIN_AMP_ERR) == LOW) {
+        Serial.println("ERREUR MA12070!");
+        ampState = AMP_STATE_ERROR;
+        setMA12070Mute(true);
+    }
+    
+    delay(10);
+}
+
+// ============================================================================
+// FIN FIRMWARE V1.10
+// ============================================================================
