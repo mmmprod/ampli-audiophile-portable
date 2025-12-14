@@ -1,171 +1,186 @@
-# Ampli Audiophile Portable
+# 🎵 Portable Audiophile Amplifier
 
-![Version](https://img.shields.io/badge/version-1.10-blue)
-![MCU](https://img.shields.io/badge/MCU-ESP32--S3-red)
-![Bluetooth](https://img.shields.io/badge/Bluetooth-LDAC-purple)
-![Amp](https://img.shields.io/badge/Amp-MA12070_Class--D-green)
-![License](https://img.shields.io/badge/license-MIT-brightgreen)
+Battery-powered Class-D stereo amplifier with phono preamp, Bluetooth LDAC, 3-band EQ and digital control. Designed for vintage passive speakers.
 
-Amplificateur audiophile portable DIY avec Bluetooth LDAC, entree phono RIAA, et amplification Class-D. Concu pour alimenter des enceintes passives vintage depuis une batterie LiPo 6S.
+[![Hardware](https://img.shields.io/badge/Hardware-v1.10-blue)](docs/Hardware_V1_10.md)
+[![Firmware](https://img.shields.io/badge/Firmware-v1.10-green)](firmware/Firmware_Ampli_V1_10.ino)
+[![Status](https://img.shields.io/badge/status-active-success)](https://github.com/mmmprod/ampli-audiophile-portable)
+[![MCU](https://img.shields.io/badge/MCU-ESP32--S3-red)](https://www.espressif.com/)
+[![Bluetooth](https://img.shields.io/badge/Bluetooth-LDAC-purple)](https://www.sony.com/electronics/ldac)
+[![License](https://img.shields.io/badge/license-proprietary-orange)](LICENSE)
 
-## Architecture
+---
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         SIGNAL PATH                                 │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  ┌─────────┐    ┌──────────┐    ┌─────────┐    ┌────────┐          │
-│  │ BTM525  │───>│ PCM5102A │───>│ TDA7439 │───>│OPA2134 │          │
-│  │  LDAC   │    │   DAC    │    │   EQ    │    │ Buffer │          │
-│  └─────────┘    └──────────┘    └─────────┘    └────┬───┘          │
-│       │                              ^              │               │
-│       │              ┌───────────────┘              │               │
-│  ┌────┴────┐    ┌────┴────┐                   ┌─────v─────┐        │
-│  │  AUX    │    │  PHONO  │                   │  MA12070  │        │
-│  │ 3.5mm   │    │  RIAA   │                   │  Class-D  │        │
-│  └─────────┘    └─────────┘                   └─────┬─────┘        │
-│                                                     │               │
-│                                              ┌──────v──────┐        │
-│                                              │   HP 8ohm   │        │
-│                                              │  2x20W RMS  │        │
-│                                              └─────────────┘        │
-└─────────────────────────────────────────────────────────────────────┘
-```
+## ✅ Recommended Versions
 
-## Specifications
+| Hardware | Firmware | Status | Notes |
+|----------|----------|--------|-------|
+| **V1.10** | **V1.10** | ✅ Recommended | I2C level shifter, anti-plop, Molex |
+| **V1.9** | **V1.9** | 🔧 Stable | I2C open-drain fix, PTC ribbon, NTC inrush |
+| **V1.4** | **V1.4** | 📦 Archive | TDA7439, reliability fixes |
 
-| Parametre | Valeur |
-|-----------|--------|
-| Puissance | 2 x 20W RMS @ 8ohm |
-| THD+N | < 0.01% @ 1W |
-| SNR | > 110dB (amp) / > 65dB (phono) |
-| Bluetooth | LDAC, aptX HD, aptX, AAC, SBC |
-| Entrees | Bluetooth, AUX 3.5mm, Phono MM |
-| Egaliseur | 3 bandes +/-14dB |
-| Batterie | LiPo 6S 22.2V (18-25.2V) |
-| Autonomie | 4-6h |
+> ⚠️ **V1.10** fixes critical bugs found during external audit. Upgrade strongly recommended!
 
-## Architecture Bi-Carte
+---
 
-```
-┌─────────────────────────────────────────────┐
-│           CARTE 2 - SIGNAL                  │
-│  ESP32-S3 | BT | DAC | EQ | Buffer         │
-│  [V1.10: Level Shifter BSS138 I2C]         │
-└──────────────────┬──────────────────────────┘
-                   │ Molex Micro-Fit 16P
-                   │ [V1.10: Verrouillage]
-┌──────────────────┴──────────────────────────┐
-│           CARTE 1 - PUISSANCE               │
-│  BMS 6S | 5-Level Protection | MA12070     │
-│  [V1.10: Sequence Anti-Plop]               │
-└─────────────────────────────────────────────┘
-```
+## ✨ Features
 
-## Protection 5 Niveaux
+| Spec | Value |
+|------|-------|
+| 🔊 **Power** | 2 × 20W RMS @ 8Ω (MA12070 Class-D) |
+| 📶 **Bluetooth** | LDAC, aptX HD, aptX, AAC, SBC (BTM525 QCC5125) |
+| 🎚️ **Equalizer** | 3-band ±14dB (TDA7439) |
+| 🎛️ **Inputs** | Bluetooth, AUX 3.5mm, Phono MM |
+| 💿 **Phono Preamp** | RIAA OPA2134, 40dB gain |
+| 🔋 **Battery** | LiPo 6S 22.2V, 4-6h runtime |
+| 🛡️ **Protection** | 5-level chain (BMS→TCO→Relay→NTC→Fuse→TVS) |
+
+---
+
+## 🔥 What's New in V1.10
+
+### 🐛 Critical Bugs Fixed
+
+| Bug | Impact | Fix |
+|-----|--------|-----|
+| 🔴 TDA7439 @ 5V | I2C dead (V_IH=6.3V > 3.3V) | 9V supply + **BSS138 level shifter** |
+| 🔴 Power-off pop | Speaker stress, blown tweeters | **MUTE→EN→RELAY** sequence |
+| 🔴 JST XH vibrations | Disconnect = fried MCU | **Molex Micro-Fit 3.0** |
+| 🟡 LM7812 overheating | High Tj | 15×15mm copper pour |
+| 🟡 Noisy VREF | Audible 50Hz hum | 47µF C_REF (-37dB) |
+
+### 🛡️ Enhanced Safety
+
+| Feature | Description |
+|---------|-------------|
+| 🔌 USB Isolator | Protection against BTL scope short-circuit |
+| ⚡ Power Fail ISR | Instant MUTE on power loss |
+| 🔒 Locking connector | Molex = audible click, vibration-proof |
+
+---
+
+## 🏗️ Architecture
 
 ```
-+PACK --> [N1 BMS] --> [N2 TCO] --> [N3 Relay] --> [N3bis NTC] --> [N4 Fuse] --> [N5 TVS] --> +22V
-              |            |            |              |              |             |
-              v            v            v              v              v             v
-          OVP/UVP     Thermal 72C   Software      Inrush 5A       5A Fast      Transient
-          25A OCP      Auto-Reset    Control        Limit          Blow         Suppress
+┌─────────────────────────────────────────────────┐
+│            CARD 2 - SIGNAL (80×120mm)           │
+│  🧠 ESP32-S3 │ 📶 BT │ 🎵 DAC │ 🎚️ EQ │ 🔊 Buffer │
+│           [V1.10: BSS138 Level Shifter]         │
+└──────────────────────┬──────────────────────────┘
+                       │ 🔗 Molex Micro-Fit 16P
+┌──────────────────────┴──────────────────────────┐
+│            CARD 1 - POWER (80×100mm)            │
+│  🔋 BMS 6S │ 🛡️ 5-Level Protection │ 🔊 MA12070  │
+│           [V1.10: Anti-Plop Sequence]           │
+└─────────────────────────────────────────────────┘
 ```
 
-## Bus I2C [V1.10]
+---
 
-```
-                    Level Shifter BSS138
-                    ┌─────────────────┐
-ESP32 (3.3V) ──────>│ SDA_3V3  SDA_9V │──────> TDA7439 (9V)
-GPIO1              │                 │         MA12070
-                   │ SCL_3V3  SCL_9V │
-ESP32 ────────────>│                 │──────>
-GPIO2              └─────────────────┘
+## 🚀 Quick Start
 
-OLED SSD1306 @ 0x3C  (3.3V domain)
-TDA7439      @ 0x44  (9V domain via level shifter)
-MA12070      @ 0x20  (9V domain via ribbon)
-```
+### 1️⃣ Documentation
 
-## Power Rails
+| Document | Description |
+|----------|-------------|
+| 📋 [Hardware_V1_10.md](docs/Hardware_V1_10.md) | Schematics, BOM, connections |
+| 💻 [Firmware_V1_10.ino](firmware/Firmware_Ampli_V1_10.ino) | ESP32-S3 code |
+| 🧪 [Breakout_Box_V1_3.md](docs/Breakout_Box_V1_3.md) | Test protocol |
 
-```
-+BATT (18-25V)
-    |
-    +---> LM7812 ---> +12V_PRE
-    |                    |
-    |                    +---> LM7809 ---> +9V_BUFFER (TDA7439 + OPA2134)
-    |                    |
-    |                    +---> MCP1703A ---> +5V_ANALOG (DAC, MUX)
-    |
-    +---> MP1584 ---> +5V (Digital)
-    |                    |
-    |                    +---> AMS1117 ---> +3V3 (ESP32, OLED)
-    |
-    +---> Direct ---> +PVDD (MA12070 Class-D)
+### 2️⃣ Flash Firmware
+
+```bash
+# Install ESP32 Core 2.0+
+# Required libraries:
+# - Adafruit_GFX
+# - Adafruit_SSD1306
+# - IRremoteESP8266
+
+# Board: ESP32S3 Dev Module
+# Upload speed: 921600
 ```
 
-## Fichiers
+### 3️⃣ Assembly
+
+1. Solder Card 1 (power) — watch the **LM7812 copper pour**
+2. Solder Card 2 (signal) — watch the **BSS138 level shifter**
+3. Connect with **Molex Micro-Fit** (check the click!)
+4. Connect 6S battery + 8Ω speakers
+5. 🎵 **Enjoy!**
+
+---
+
+## 🧪 Testing & Diagnostics
+
+### Serial Commands (115200 baud)
+
+```
+i2cscan   → Device detection (0x3C OLED, 0x44 TDA, 0x20 MA12070)
+adctest   → ADC + median filter test
+temptest  → NTC temperature reading
+shutdown  → Anti-plop sequence test
+stats     → Full statistics
+```
+
+### V1.10 Checklist
+
+- [ ] I2C scan finds 3 devices
+- [ ] Level shifter 3.3V ↔ 9V working
+- [ ] Silent power-off (no pop)
+- [ ] NTC fail-safe active
+- [ ] Molex audible click
+
+---
+
+## ⚠️ Warnings
+
+### 🔴 BTL OUTPUTS — DANGER!
+
+```
+┌────────────────────────────────────────────────────────────┐
+│  ⚡ HP_L- and HP_R- are ACTIVE OUTPUTS!                   │
+│     They are NOT ground!                                   │
+│                                                            │
+│  ❌ Standard scope probe = SHORT CIRCUIT                  │
+│  ❌ USB connected + HP measurement = DESTRUCTION          │
+│                                                            │
+│  ✅ Differential probes only                              │
+│  ✅ OR disconnect USB before HP measurement               │
+│  ✅ OR use USB galvanic isolator (Adafruit #2107)         │
+└────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📁 Project Structure
 
 ```
 ampli-audiophile-portable/
-├── README.md                           # Ce fichier
-├── README_HARDWARE.md                  # Documentation hardware
-├── README_FIRMWARE.md                  # Documentation firmware
-├── hardware/
-│   └── Ampli_Audiophile_Portable_V1_10.md
-├── firmware/
-│   └── Firmware_Ampli_V1_10.ino
-└── test/
-    └── Breakout_Box_Test_V1_3.md
+├── 📄 README.md                    ← You are here
+├── 📄 README_HARDWARE.md           ← Hardware technical doc
+├── 📄 README_FIRMWARE.md           ← Firmware technical doc
+├── 📁 docs/
+│   ├── Hardware_V1_10.md
+│   ├── Breakout_Box_V1_3.md
+│   └── ...
+├── 📁 firmware/
+│   ├── Firmware_Ampli_V1_10.ino
+│   └── ...
+└── 📄 LICENSE
 ```
 
-## Changelog
+---
 
-| Version | Date | Corrections |
-|---------|------|-------------|
-| V1.10 | Dec 2025 | Level shifter BSS138, sequence anti-plop, Molex |
-| V1.9 | Dec 2025 | I2C open-drain fix, PTC nappe, NTC inrush, buffer 9V |
-| V1.8 | Nov 2025 | NTC fail-safe, median filter, encoder mutex |
+## 🤝 Contributing
 
-## Corrections Critiques V1.10
+Contributions welcome! Open issues, suggest improvements, submit PRs.
 
-| Bug | Impact | Solution |
-|-----|--------|----------|
-| TDA7439 @ 5V | I2C mort (V_IH=6.3V > 3.3V) | Alim 9V + BSS138 level shifter |
-| Plop extinction | Stress HP, destruction tweeter | Sequence MUTE -> EN -> RELAY |
-| JST XH vibrations | Deconnexion = destruction MCU | Molex Micro-Fit 3.0 |
+---
 
-## Quick Start
+## 📜 License
 
-1. **Assembler** les deux cartes selon documentation hardware
-2. **Flasher** le firmware via USB-C
-3. **Connecter** batterie 6S et enceintes 8ohm
-4. **Appairer** en Bluetooth (nom: "Ampli Portable")
+Proprietary license for non-commercial use. Commercial licensing available on request. See [LICENSE](LICENSE).
 
-## Securite
+---
 
-```
-!!! SORTIES BTL !!!
-
-HP_L- et HP_R- sont des SORTIES ACTIVES, pas la masse!
-
-INTERDIT:
-  - Sonde oscillo standard sur HP_L- ou HP_R-
-  - USB branche pendant mesure HP
-
-OBLIGATOIRE:
-  - Sondes differentielles uniquement
-  - OU debrancher USB avant mesure HP
-  - OU isolateur USB galvanique (Adafruit #2107)
-```
-
-## License
-
-MIT License - Voir LICENSE pour details.
-
-## Auteur
-
-Mehdi - Projet DIY audiophile
+**🎵 Enjoy high-fidelity audio!**
