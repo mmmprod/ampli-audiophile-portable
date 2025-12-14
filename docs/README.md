@@ -1,519 +1,387 @@
-# 📐 Documentation Hardware — Ampli Audiophile V1.7
+# HARDWARE - AMPLIFICATEUR AUDIOPHILE
 
-> Documentation technique complète du hardware de l'amplificateur audiophile portable.
+## Informations
 
----
-
-## 📋 Table des Matières
-
-1. [Vue d'Ensemble](#vue-densemble)
-2. [Carte 1 — Puissance](#carte-1--puissance)
-3. [Carte 2 — Signal/Contrôle](#carte-2--signalcontrôle)
-4. [Nappe Inter-Cartes](#nappe-inter-cartes)
-5. [Règles PCB V1.7](#règles-pcb-v17)
-6. [Bill of Materials](#bill-of-materials)
-7. [WCCA — Analyse Pire Cas](#wcca--analyse-pire-cas)
-8. [Schémas de Connexion](#schémas-de-connexion)
-
----
-
-## Vue d'Ensemble
-
-### Architecture Bi-Carte
-
-| Carte | Dimensions | Fonction |
-|-------|------------|----------|
-| **Carte 1** | 80 × 100 mm | Puissance : BMS, sécurité, ampli MA12070, sorties HP |
-| **Carte 2** | 80 × 120 mm | Signal : ESP32-S3, BT, DAC, EQ TDA7439, préampli phono |
-
-### Spécifications Système
-
-| Paramètre | Valeur |
+| Parametre | Valeur |
 |-----------|--------|
-| Tension batterie | 18-25.2V (6S LiPo) |
-| Puissance ampli | 2 × 20W @ 8Ω |
-| THD+N | < 0.01% @ 1W |
-| SNR | > 110dB |
+| Version | 1.9 |
+| Date | 14 decembre 2025 |
+| PCB | 2 cartes (puissance + signal) |
+
+## Specifications Electriques
+
+| Parametre | Valeur |
+|-----------|--------|
+| Alimentation | LiPo 6S 18-25.2V |
+| Puissance sortie | 2 x 20W RMS @ 8 ohms |
+| Impedance charge | 4-8 ohms |
 | Consommation repos | < 50mA |
-| Consommation max | ~2.5A |
+| Consommation max | 3A |
 
-### Changelog V1.7 — Audit ChatGPT
-
-| Modification | Avant (V1.6) | Après (V1.7) | Raison |
-|--------------|--------------|--------------|--------|
-| Alimentation audio | R_DROP 47Ω → MCP1703A | LM7812 → MCP1703A | VIN max 18V absolu |
-| R_DROP | 47Ω 3W | **SUPPRIMÉE** | Inutile avec LM7812 |
-| D3 Protection PVDD | SS54 (Vf=0.5V) | 1N5822 (Vf=0.9V) | Marge PVDD +0.4V |
-
----
-
-## Carte 1 — Puissance
-
-### C1-A : Module BMS
-
-**Composant :** JBD SP22S003B (6S 20A)
-
-| Connecteur | Fonction |
-|------------|----------|
-| C- (noir) | GND commun charge/décharge |
-| B- (bleu) | Négatif pack batterie |
-| P+ (rouge) | Positif sortie protégée |
-| JST XH-7P | Balance cellules B0-B6 |
-| JST PH-2P | Sonde NTC 10kΩ |
-
-**Protections intégrées :**
-- Surcharge cellule : 4.25V ±25mV
-- Sous-décharge : 2.8V ±50mV
-- Surintensité : 25A
-- Court-circuit : < 100µs
-- Sur-température : 60°C
-
----
-
-### C1-B : Sécurité 5 Niveaux
+## Architecture Dual-PCB
 
 ```
-+PACK → BMS → TCO → Relais K1 → Fusible F1 → D1+D2 → +22V_RAW
-         N1    N2      N3           N4         N5
+CARTE 2 - SIGNAL (80 x 120 mm)
++----------------------------------------------------------+
+|                                                          |
+|  [ESP32-S3]  [BTM525]  [PCM5102A]  [TDA7439]  [OPA2134]  |
+|     MCU        BT        DAC         EQ       Buffer     |
+|                                                          |
++------------------------------+---------------------------+
+                               |
+                         Nappe 16 pins
+                    [PTC1 750mA] [PTC2 500mA]
+                               |
++------------------------------+---------------------------+
+|                                                          |
+|  [BMS 6S]  [Securite]  [Alims]  [MA12070]  [Sorties HP] |
+|    20A     5 niveaux   5V/3V3   Class-D     Borniers    |
+|                        9V/12V                            |
++----------------------------------------------------------+
+CARTE 1 - PUISSANCE (80 x 100 mm)
 ```
 
-| Niveau | Composant | Specs |
-|--------|-----------|-------|
-| N1 | BMS JBD | 6S 20A, balance 50mA |
-| N2 | TCO Aupo A4-1A-F | 72°C, 10A, réarmable |
-| N3 | Relais HF46F-G/12 | 12V, 10A, SPST-NO |
-| N4 | Fusible Littelfuse | 5A, **Fast-blow**, ATO |
-| N5 | D1 1N5822 + D2 SMBJ24CA | Anti-inversion + TVS |
+## CARTE 1 - Puissance
 
-**Driver relais (opto-isolé) :**
-```
-+3V3 → R_LED (1kΩ) → PC817 LED → ESP32 GPIO42
-+BATT → R_PULL (10kΩ) → PC817 Collecteur
-PC817 Émetteur → Si2302 Gate → K1 Bobine-
-```
+### C1-A : BMS 6S
 
----
-
-### C1-C : Protection PVDD (V1.7)
-
-**Problème :** MA12070 PVDD max = 26V, batterie pleine = 25.2V, back-EMF possible +1.35V
-
-**Solution V1.7 :** Diode série 1N5822 (Vf = 0.9V)
+**Composant:** JBD SP22S003B (6S 20A)
 
 ```
-+22V_RAW → D3 (1N5822, Vf=0.9V) → +PVDD_SAFE (24.3V nominal)
+Pack B- --> BMS B- (fil bleu)
+Pack B1-B6 --> BMS Balance (JST XH-7P)
+BMS C- --> GND commun (fil noir)
+BMS P+ --> +BATT_PROT (fil rouge)
+NTC 10k --> BMS T (JST PH-2P)
 ```
 
-| Paramètre | V1.6 (SS54) | V1.7 (1N5822) |
-|-----------|-------------|---------------|
-| Batterie pleine | 25.2V | 25.2V |
-| Vf diode | 0.5V | 0.9V |
-| PVDD nominal | 24.7V | **24.3V** |
-| Back-EMF +1.35V | 26.05V ⚠️ | **25.65V** ✅ |
-| Marge vs 26V | 0% | **1.3%** |
+### C1-B : Securite 5 Niveaux
 
-**Calcul back-EMF (Worst Case) :**
 ```
-Inductance HP : L = 100µH (estimation HP 8Ω)
-Courant crête : I = 2A
-Énergie : E = ½ × L × I² = ½ × 100µH × 4A² = 200µJ
-C_PVDD : 220µF
-ΔV = √(2 × E / C) = √(2 × 200µJ / 220µF) = 1.35V
-PVDD_max = 24.3V + 1.35V = 25.65V < 26V ✅
++PACK --> [N1 BMS] --> [N2 TCO] --> [N3 K1] --> [N3bis NTC] --> [N4 F1] --> [N5 D1+D2] --> +22V_RAW
 ```
 
----
+**Niveau 1 - BMS**
+- Surcharge: 4.25V/cellule
+- Sous-decharge: 2.8V/cellule
+- Surintensite: 25A
+- Court-circuit: <100us
+
+**Niveau 2 - TCO Thermique**
+```
++BATT_PROT --> TCO (Aupo A4-1A-F 72C 10A) --> +BATT_TCO
+```
+
+**Niveau 3 - Relais**
+```
++BATT_TCO --> K1 NO (HF46F-G/12-HS1) --> +BATT_K1
+K1 Bobine+ --> +BATT_TCO
+K1 Bobine- --> Q1 Drain (Si2302)
+Q1 Source --> GND
+Q1 Gate --> RELAY_CTRL (via PC817)
+```
+
+**Niveau 3bis - NTC Inrush [V1.9]**
+```
++BATT_K1 --> NTC1 (Ametherm SL10 5R005, 5ohm@25C) --> +BATT_RELAY
+```
+- Limite inrush de 500A a 5A
+- Resistance regime permanent: <0.5 ohm
+
+**Niveau 4 - Fusible**
+```
++BATT_RELAY --> F1 (5A Fast-blow ATO) --> +BATT_FUSE
+```
+
+**Niveau 5 - Protection**
+```
++BATT_FUSE --> D1 anode (SS54 Schottky)
+D1 cathode --> +22V_RAW
++22V_RAW --> D2 (SMBJ24CA TVS) --> GND
+```
+
+### C1-C : Protection PVDD
+
+```
++22V_RAW --> D3 anode (1N5822)
+D3 cathode --> +PVDD_SAFE
+```
+- Protege MA12070 (max 26V)
+- Chute 0.9V sous charge
 
 ### C1-D : Alimentations
 
-#### Buck DC-DC (22V → 5V)
-
-**Module :** MP1584EN 3A
-
+**Buck 22V --> 5V**
 ```
-+22V_RAW → C_IN (100µF + 10µF) → MP1584 VIN
-MP1584 VOUT → L_FILT (10µH) → +5V
++22V_RAW --> MP1584EN --> +5V
+Decouplage: 100uF + 10uF entree/sortie
 ```
 
-#### LDO (5V → 3.3V)
-
-**Composant :** AMS1117-3.3 (SOT-223)
-
+**LDO 5V --> 3.3V**
 ```
-+5V → AMS1117 → +3V3
-Découplage: 10µF entrée, 22µF + 100nF sortie
++5V --> AMS1117-3.3 --> +3V3
+Decouplage: 10uF entree, 22uF + 100nF sortie
 ```
 
-#### LDO Audio (22V → 5V) — ⭐ REFONTE V1.7
-
-**Problème V1.6 :** MCP1703A VIN max = 18V absolu, architecture précédente fournissait ~24V
-
-**Solution V1.7 :** Double régulation LM7812 + MCP1703A
-
+**Rail Audio 22V --> 12V --> 5V**
 ```
-+22V_RAW → LM7812 → +12V_PRE → MCP1703A-5002E → +5V_ANALOG
-           (TO-220)             (TO-92)
++22V_RAW --> LM7812 --> +12V_PRE
++12V_PRE --> MCP1703A-5002 --> +5V_ANALOG
 ```
 
-**Avantages :**
-- VIN MCP1703A garanti 12V < 16V operating < 18V absolu ✅
-- R_DROP 47Ω supprimée (simplification)
-- Dissipation répartie sur 2 composants
-- Fiabilité garantie toute la plage batterie
-
-**Calculs thermiques V1.7 :**
-
-| Composant | Courant | VIN | VOUT | P_diss | Tj @ 25°C |
-|-----------|---------|-----|------|--------|-----------|
-| LM7812 | 20mA | 25.2V | 12V | 0.26W | 53°C |
-| MCP1703A | 20mA | 12V | 5V | 0.14W | 65°C |
-
+**Rail Buffer 9V [V1.9]**
 ```
-LM7812:
-  P = (25.2V - 12V) × 0.02A = 0.26W
-  Rth(j-a) TO-220 = 65°C/W (sans radiateur)
-  Tj = 25°C + 0.26W × 65°C/W = 42°C
-  Avec marge (Rth = 110°C/W pire cas) : Tj = 53°C << 125°C ✅
-
-MCP1703A:
-  P = (12V - 5V) × 0.02A = 0.14W
-  Rth(j-a) TO-92 = 200°C/W
-  Tj = 25°C + 0.14W × 200°C/W = 53°C
-  Avec marge 40°C : Tj = 65°C << 150°C ✅
++22V_RAW --> LM7809 --> +9V_BUFFER
+Pour OPA2134 buffer (headroom 7.5V)
 ```
 
-**Découplage LM7812 :**
+### C1-E : Protection Nappe [V1.9]
+
 ```
-+22V_RAW → C_IN1 (100nF céramique) → LM7812 VIN
-LM7812 GND → GND plan
-LM7812 VOUT → C_OUT1 (10µF électrolytique) → +12V_PRE
++5V --> PTC1 (MF-R075 750mA) --> NAPPE_5V
++3V3 --> PTC2 (MF-R050 500mA) --> NAPPE_3V3
 ```
+- Auto-rearmable apres court-circuit
+- Protege Carte 1 si defaut Carte 2
 
-**Découplage MCP1703A :**
+### C1-F : Amplificateur MA12070
+
 ```
-+12V_PRE → C_IN2 (1µF céramique) → MCP1703A VIN
-MCP1703A GND → GND plan (Star Ground)
-MCP1703A VOUT → C_OUT2 (1µF céramique) → +5V_ANALOG
-```
++PVDD_SAFE --> C_BULK (220uF 35V) --> MA12070 PVDD
+GND (Star Ground sur C_BULK) --> MA12070 GND
 
----
+MA12070 OUT_L+ --> L (10uH) --> HP_L+
+MA12070 OUT_L- --> L (10uH) --> HP_L-
+MA12070 OUT_R+ --> L (10uH) --> HP_R+
+MA12070 OUT_R- --> L (10uH) --> HP_R-
 
-### C1-E : Amplificateur MA12070
-
-**Composant :** Infineon MA12070 (QFN-48)
-
-| Paramètre | Valeur |
-|-----------|--------|
-| PVDD | 4.5-26V (24.3V nominal V1.7) |
-| Puissance | 2 × 20W @ 8Ω, THD 1% |
-| Rendement | > 90% |
-| I2C Addr | 0x20 |
-
-**Connexions critiques :**
-```
-+PVDD_SAFE (24.3V) → MA12070 PVDD (pins multiples)
-+5V → MA12070 VDD_5V0
-+3V3 → MA12070 VDD_IO
-GND → MA12070 GND (Star Ground)
-
-I2C : SDA/SCL → ESP32 (via nappe)
-MUTE → ESP32 GPIO (actif LOW)
-ENABLE → ESP32 GPIO (actif HIGH)
+I2C: SDA, SCL (via nappe)
+Controle: AMP_EN, AMP_MUTE, AMP_ERR
 ```
 
-**Sorties HP :**
-```
-MA12070 OUT_A+ → HP_L+
-MA12070 OUT_A- → HP_L-
-MA12070 OUT_B+ → HP_R+
-MA12070 OUT_B- → HP_R-
-```
-
----
-
-## Carte 2 — Signal/Contrôle
+## CARTE 2 - Signal
 
 ### C2-A : ESP32-S3
 
-**Module :** ESP32-S3-WROOM-1-N8R8
+**Module:** ESP32-S3-WROOM-1-N8R8
 
-| Interface | GPIO | Fonction |
-|-----------|------|----------|
-| I2C SDA | GPIO1 | MA12070, TDA7439, OLED |
-| I2C SCL | GPIO2 | Horloge I2C |
-| SPI CS Volume | GPIO10 | MCP4261 (backup) |
-| ADC Batterie | GPIO4 | Diviseur 1:6 |
-| ADC NTC | GPIO5 | Thermistance 10kΩ |
-| Encodeur A | GPIO6 | Rotation volume |
-| Encodeur B | GPIO7 | Rotation volume |
-| Encodeur SW | GPIO15 | Bouton poussoir |
-| IR Receiver | GPIO16 | TSOP38238 |
-| Relais Ctrl | GPIO42 | Opto PC817 |
-| MA12070 MUTE | GPIO40 | Mute ampli |
-| MA12070 EN | GPIO41 | Enable ampli |
+Voir README_FIRMWARE.md pour pinout complet.
 
 ### C2-B : Bluetooth BTM525
 
-**Module :** QCC5125 LDAC
-
 ```
-BTM525 I2S_BCLK → PCM5102A BCK
-BTM525 I2S_LRCK → PCM5102A LRCK
-BTM525 I2S_DATA → PCM5102A DIN
++5V --> BTM525 VCC
+GND --> BTM525 GND
+I2S: BCK (GPIO3), WS (GPIO4), DATA (GPIO5)
 ```
 
 ### C2-C : DAC PCM5102A
 
 ```
-PCM5102A OUT_L → CD4053 X0
-PCM5102A OUT_R → CD4053 Y0
++3V3 --> PCM5102A VCC
+I2S: BCK, LRCK, DIN
+FMT --> GND (I2S standard)
+XSMT --> +3V3 (soft mute off)
+OUT_L/R --> CD4053 entree
 ```
 
-### C2-D : Sélecteur CD4053
+### C2-D : Preampli Phono RIAA
 
-**3 entrées stéréo :**
-
-| Source | Entrées CD4053 |
-|--------|----------------|
-| Bluetooth | X0/Y0 |
-| AUX | X1/Y1 |
-| Phono | X2/Y2 |
+**OPA2134 + reseau RIAA**
 
 ```
-CD4053 OUT_X → TDA7439 IN_L
-CD4053 OUT_Y → TDA7439 IN_R
+PHONO_IN --> C (100nF film) --> OPA2134 IN+
+OPA2134 configurer en ampli RIAA
+Gain: ~40dB @ 1kHz
 ```
 
-### C2-E : EQ TDA7439
-
-| Paramètre | Plage |
-|-----------|-------|
-| Bass | ±14dB @ 100Hz |
-| Mid | ±14dB @ 1kHz |
-| Treble | ±14dB @ 10kHz |
-| Volume | -47dB à +15dB |
-
+**Reseau RIAA:**
 ```
-TDA7439 OUT_L → OPA2134 Buffer L
-TDA7439 OUT_R → OPA2134 Buffer R
+R1 = 750 ohm, C1 = 3.3nF (pole 2122Hz)
+R2 = 75k (zero 50Hz)
+C2 = 100pF (pole 21.2kHz)
 ```
 
-### C2-F : Préampli Phono RIAA
-
-**Composant :** OPA2134 (×2)
-
+**Masse virtuelle [V1.9]:**
 ```
-Entrée phono → C_IN (100nF film) → OPA2134 #1 (gain + RIAA) → OPA2134 #2 (buffer)
-```
-
----
-
-## Nappe Inter-Cartes
-
-### Connecteur 16 pins (IDC)
-
-| Pin | Signal | Direction | Notes |
-|-----|--------|-----------|-------|
-| 1 | GND | - | Blindage |
-| 2 | +22V_RAW | C1→C2 | Alim principale |
-| 3 | GND | - | Blindage |
-| 4 | +5V | C1→C2 | Buck régulé |
-| 5 | GND | - | Blindage |
-| 6 | +3V3 | C2→C1 | LDO |
-| 7 | GND | - | Blindage |
-| 8 | I2C_SDA | Bidirectionnel | Pull-up 4.7kΩ |
-| 9 | I2C_SCL | Bidirectionnel | Pull-up 4.7kΩ |
-| 10 | GND | - | Blindage |
-| 11 | AUDIO_L | C2→C1 | Signal audio gauche |
-| 12 | AUDIO_R | C2→C1 | Signal audio droit |
-| 13 | GND | - | Blindage |
-| 14 | MA_MUTE | C2→C1 | Contrôle mute |
-| 15 | MA_EN | C2→C1 | Contrôle enable |
-| 16 | GND | - | Blindage |
-
-**Note V1.6+ :** 6 pins GND pour blindage (anti-crosstalk)
-
----
-
-## Règles PCB V1.7
-
-### Star Ground
-
-```
-         C_BULK (1000µF)
-              │
-    ┌─────────┼─────────┐
-    │         │         │
-    ▼         ▼         ▼
- GND_PWR   GND_CTRL  GND_AUDIO
-(MA12070)  (ESP32)   (TDA7439)
++5V_ANALOG --> R (10k) --> VREF
+VREF --> R (10k) --> GND
+VREF --> C_REF (10uF film) --> GND
 ```
 
-**Impératif :** Toutes les masses convergent en UN SEUL point sur C_BULK
+### C2-E : Selecteur CD4053
 
-### Règles Placement
+```
++5V_ANALOG --> CD4053 VCC
+GPIO41 --> A, B, C (selection)
 
-| Zone | Composants | Contraintes |
-|------|------------|-------------|
-| Puissance | MA12070, D3, F1 | Écart > 10mm du signal |
-| Signal | TDA7439, OPA2134 | Blindage via GND |
-| Numérique | ESP32, BTM525 | Loin des entrées analogiques |
-| Thermique | LM7812, MA12070 | Cuivre 50mm² min, vias thermiques |
+X0/Y0: DAC (Bluetooth)
+X1/Y1: AUX
+X2/Y2: PHONO
+X/Y OUT --> TDA7439 IN
+```
 
-### Crosstalk Prevention
+### C2-F : Processeur TDA7439
 
-- Traces audio : ≥ 3× largeur d'écart entre L et R
-- Guard traces GND autour des signaux sensibles
-- Pas de trace numérique sous/sur traces analogiques
-- Vias de découplage < 3mm des pins Vcc
+```
++5V_ANALOG --> TDA7439 VCC (pin 18)
+I2C: SDA (pin 21), SCL (pin 20)
+Adresse: 0x44
+```
 
----
+**Condensateurs EQ:**
+| Bande | Pins | Valeur | fc |
+|-------|------|--------|-----|
+| Bass | 4,25 | 100nF | 159Hz |
+| Mid | 5,24 | 22nF | 723Hz |
+| Treble | 6,23 | 5.6nF | 2.8kHz |
 
-## Bill of Materials
+### C2-G : Buffer OPA2134 [V1.9]
+
+```
+TDA7439 OUT --> R (10k) --> OPA2134 IN+
+OPA2134 IN- --> OUT (suiveur)
+OPA2134 OUT --> C (2.2uF film) --> AUDIO nappe
+
+Alimentation: +9V_BUFFER (headroom 7.5V)
+```
+
+### C2-H : Interface Utilisateur
+
+**OLED 0.96" I2C**
+```
++3V3 --> VCC
+SDA, SCL
+Adresse: 0x3C
+```
+
+**Encodeur Rotatif**
+```
+GPIO18 --> A (pull-up interne)
+GPIO19 --> B (pull-up interne)
+GPIO20 --> SW
+```
+
+### C2-I : Monitoring ADC
+
+**Batterie**
+```
++22V_RAW --> R (220k 1%) --> ADC_BATT
+ADC_BATT --> R (33k 1%) --> GND
+ADC_BATT --> C (100nF) --> GND
+```
+
+**Temperature NTC**
+```
++3V3 --> R (10k) --> ADC_NTC
+ADC_NTC --> NTC (10k@25C) --> GND
+```
+
+## Nappe Inter-cartes
+
+**Connecteur:** JST XH 16 pins, 100mm AWG24
+
+| Pin | Signal | Dir | Note |
+|-----|--------|-----|------|
+| 1 | 22V_SENSE | C1->C2 | Via diviseur |
+| 2 | +5V | C1->C2 | Via PTC1 |
+| 3 | +3V3 | C1->C2 | Via PTC2 |
+| 4-6 | GND | - | PWR/SIG/Shield |
+| 7 | AUDIO_L | C2->C1 | Blindage pin 8 |
+| 9 | AUDIO_R | C2->C1 | Blindage pin 10 |
+| 11 | SDA | <-> | I2C |
+| 12 | SCL | C2->C1 | I2C |
+| 13 | AMP_EN | C2->C1 | |
+| 14 | AMP_MUTE | C2->C1 | |
+| 15 | AMP_ERR | C1->C2 | |
+| 16 | SAFE_EN | C2->C1 | |
+
+## BOM Principale
 
 ### Semiconducteurs
 
-| Réf | Composant | Valeur | Package | Qté |
-|-----|-----------|--------|---------|-----|
-| U1 | MA12070 | Ampli Class-D | QFN-48 | 1 |
-| U2 | ESP32-S3-WROOM-1 | N8R8 | Module | 1 |
-| U3 | TDA7439 | EQ Audio | DIP-28 | 1 |
-| U4 | PCM5102A | DAC I2S | TSSOP-20 | 1 |
-| U5 | OPA2134 | Op-Amp Audio | DIP-8 | 2 |
-| U6 | CD4053 | Mux Analog | DIP-16 | 1 |
-| U7 | AMS1117-3.3 | LDO 3.3V | SOT-223 | 1 |
-| U8 | MCP1703A-5002E | LDO 5V Audio | TO-92 | 1 |
-| **U9** | **LM7812** | **Régulateur 12V** | **TO-220** | **1** |
-| Q1 | Si2302 | N-MOS | SOT-23 | 1 |
-| D1 | 1N5822 | Schottky 40V 3A | DO-201 | 1 |
-| D2 | SMBJ24CA | TVS 24V | SMB | 1 |
-| **D3** | **1N5822** | **Schottky PVDD** | **DO-201** | **1** |
+| Ref | Composant | Package | Qte |
+|-----|-----------|---------|-----|
+| U1 | MA12070 | QFN-48 | 1 |
+| U2 | OPA2134PA | DIP-8 | 2 |
+| U3 | TDA7439 | DIP-30 | 1 |
+| U4 | CD4053BE | DIP-16 | 1 |
+| U5 | AMS1117-3.3 | SOT-223 | 1 |
+| U6 | LM7812 | TO-220 | 1 |
+| U7 | MCP1703A-5002 | TO-92 | 1 |
+| U8 | LM7809 | TO-220 | 1 |
+| D1 | SS54 | SMA | 1 |
+| D2 | SMBJ24CA | SMB | 1 |
+| D3 | 1N5822 | DO-201AD | 1 |
 
-### Passifs (Sélection)
+### Protections V1.9
 
-| Réf | Valeur | Type | Qté |
-|-----|--------|------|-----|
-| C_BULK | 1000µF/35V | Électrolytique | 1 |
-| C_PVDD | 220µF/35V | Électrolytique | 1 |
-| C_dec | 100nF | Céramique X7R | 20 |
-| R_I2C | 4.7kΩ | 0805 | 2 |
-| R_LED | 1kΩ | 0805 | 2 |
+| Ref | Composant | Valeur | Qte |
+|-----|-----------|--------|-----|
+| PTC1 | MF-R075 | 750mA | 1 |
+| PTC2 | MF-R050 | 500mA | 1 |
+| NTC1 | SL10 5R005 | 5ohm | 1 |
 
 ### Modules
 
-| Réf | Module | Specs |
-|-----|--------|-------|
-| MOD1 | BMS JBD SP22S003B | 6S 20A |
-| MOD2 | MP1584EN | Buck 3A |
-| MOD3 | BTM525 | Bluetooth LDAC |
-| MOD4 | OLED 0.96" | SSD1306 I2C |
+| Module | Qte |
+|--------|-----|
+| ESP32-S3-WROOM-1-N8R8 | 1 |
+| BTM525 | 1 |
+| PCM5102A | 1 |
+| MP1584EN buck | 1 |
+| JBD BMS 6S 20A | 1 |
+| OLED 0.96" I2C | 1 |
 
----
+## Regles PCB
 
-## WCCA — Analyse Pire Cas
+### Carte 1 (Puissance)
 
-### Températures Jonction V1.7
+- Star Ground sur C_BULK (220uF)
+- Pistes puissance: 2mm minimum
+- Dissipateur MA12070 via PCB
+- Distance securite HT: 3mm
 
-| Composant | P_diss | Rth(j-a) | Tj @ Ta=40°C |
-|-----------|--------|----------|--------------|
-| MA12070 | 4W max | 25°C/W | 140°C |
-| LM7812 | 0.26W | 65°C/W | 57°C |
-| MCP1703A | 0.14W | 200°C/W | 68°C |
-| AMS1117 | 0.17W | 90°C/W | 55°C |
-| 1N5822 (D3) | 1.8W crête | 50°C/W | 130°C |
+### Carte 2 (Signal)
 
-### Marges Tension V1.7
+- Plan de masse continu
+- Separation analogique/numerique
+- Traces audio blindees GND
+- Decouplage 100nF chaque CI
 
-| Rail | Nominal | Min | Max | Marge |
-|------|---------|-----|-----|-------|
-| +22V_RAW | 22.2V | 18V | 25.2V | - |
-| +12V_PRE | 12V | 11.5V | 12.5V | 4% |
-| +5V_ANALOG | 5.0V | 4.9V | 5.1V | 2% |
-| +PVDD_SAFE | 24.3V | 23.5V | 25.65V | 1.3% vs 26V |
+### Thermique
 
----
+| Composant | P_max | Dissipateur |
+|-----------|-------|-------------|
+| MA12070 | 2W | PCB copper pour |
+| LM7812 | 0.3W | TO-220 nu OK |
+| LM7809 | 0.2W | TO-220 nu OK |
 
-## Schémas de Connexion
+## Tests
 
-### Bloc Alimentation Audio V1.7
+Voir Breakout_Box_Test_V1_2.md pour:
+- Procedure de test complete
+- Points de mesure
+- Valeurs attendues
+- Avertissement boucle de masse
+
+## Fichiers
 
 ```
-+22V_RAW ─────┬───────────────────────────────────────────┐
-              │                                           │
-              ▼                                           │
-         ┌─────────┐                                      │
-         │ C_IN1   │ 100nF                                │
-         │ ceramic │                                      │
-         └────┬────┘                                      │
-              │                                           │
-              ▼                                           │
-         ┌─────────┐                                      │
-         │ LM7812  │ TO-220                               │
-         │ VIN  OUT├──┬──────────────────┐                │
-         │   GND   │  │                  │                │
-         └────┬────┘  │                  ▼                │
-              │       │             ┌─────────┐           │
-              │       │             │ C_OUT1  │ 10µF      │
-              ▼       │             │ elec    │           │
-            GND       │             └────┬────┘           │
-                      │                  │                │
-                      ▼                  ▼                │
-                 +12V_PRE ───────────────┘                │
-                      │                                   │
-                      ▼                                   │
-                 ┌─────────┐                              │
-                 │ C_IN2   │ 1µF                          │
-                 │ ceramic │                              │
-                 └────┬────┘                              │
-                      │                                   │
-                      ▼                                   │
-                 ┌──────────┐                             │
-                 │ MCP1703A │ TO-92                       │
-                 │ VIN  OUT ├──┬──────────────┐           │
-                 │   GND    │  │              │           │
-                 └────┬─────┘  │              ▼           │
-                      │        │         ┌─────────┐      │
-                      │        │         │ C_OUT2  │ 1µF  │
-                      ▼        │         │ ceramic │      │
-                    GND        │         └────┬────┘      │
-                               │              │           │
-                               ▼              ▼           │
-                          +5V_ANALOG ─────────┘           │
-                               │                          │
-                               ▼                          │
-                     OPA2134 × 2, TDA7439, CD4053         │
-                                                          │
-                                                          │
-         ┌────────────────────────────────────────────────┘
-         │
-         ▼
-    ┌─────────┐
-    │   D3    │ 1N5822 (Vf=0.9V)
-    │ Schottky│
-    └────┬────┘
-         │
-         ▼
-    +PVDD_SAFE (24.3V nominal)
-         │
-         ▼
-      MA12070
+Ampli_Audiophile_Portable_V1_9.md   # Specs detaillees
+Breakout_Box_Test_V1_2.md          # Outil de test
 ```
 
----
+## Changelog Hardware
 
-## Historique Versions Hardware
-
-| Version | Date | Modifications |
-|---------|------|---------------|
-| **V1.7** | 13/12/2025 | LM7812 ajouté, R_DROP supprimée, D3→1N5822 |
-| V1.6 | 13/12/2025 | R_DROP 3W, Star Ground, règles PCB |
-| V1.5 | 13/12/2025 | D3 SS54, TVS SMBJ24CA, nappe blindée |
-| V1.4 | 13/12/2025 | Filtrage ADC, découplages renforcés |
-| V1.3 | 12/12/2025 | TDA7439 EQ intégré |
-| V1.0-1.2 | 11-12/12/2025 | Architecture initiale |
+| Version | Modifications |
+|---------|---------------|
+| V1.9 | PTC nappe, NTC inrush, Buffer 9V, C_REF |
+| V1.8 | NTC monitoring |
+| V1.7 | LM7812 pre-regulator |
+| V1.6 | Star Ground |
+| V1.5 | TVS, nappe blindee |
 
 ---
 
-<p align="center">
-  <b>📐 Documentation Hardware V1.7 — Audit ChatGPT</b>
-</p>
+*Schema concu pour montage DIY sur veroboard ou PCB custom*
