@@ -1,45 +1,59 @@
-# Firmware Documentation V1.10
+# 💻 Firmware Documentation V1.10
 
-Documentation technique du firmware ESP32-S3 pour l'Ampli Audiophile Portable.
+Technical firmware documentation for the Portable Audiophile Amplifier ESP32-S3.
 
-## Memory Map
+[![Firmware](https://img.shields.io/badge/Firmware-v1.10-green)](firmware/Firmware_Ampli_V1_10.ino)
+[![MCU](https://img.shields.io/badge/MCU-ESP32--S3-red)](https://www.espressif.com/)
+[![Framework](https://img.shields.io/badge/Framework-Arduino-teal)](https://www.arduino.cc/)
+
+---
+
+## 🧠 ESP32-S3 Memory Map
 
 ```
 ┌─────────────────────────────────────────┐
-│            ESP32-S3-WROOM-1-N8R8        │
+│         ESP32-S3-WROOM-1-N8R8           │
 ├─────────────────────────────────────────┤
-│ PSRAM:     8 MB (audio buffers)         │
-│ SRAM:      512 KB                       │
-│ Flash:     8 MB                         │
-│ - App:     4 MB                         │
-│ - SPIFFS:  1.5 MB                       │
-│ - OTA:     1.5 MB                       │
-│ - NVS:     64 KB (preferences)          │
+│ 💾 PSRAM:    8 MB (audio buffers)       │
+│ 💾 SRAM:     512 KB                     │
+│ 💾 Flash:    8 MB                       │
+│    ├── App:     4 MB                    │
+│    ├── SPIFFS:  1.5 MB                  │
+│    ├── OTA:     1.5 MB                  │
+│    └── NVS:     64 KB (preferences)     │
 └─────────────────────────────────────────┘
 ```
 
-## GPIO Pinout
+---
+
+## 📍 GPIO Pinout
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│                      ESP32-S3-WROOM                        │
+│                    🧠 ESP32-S3-WROOM                       │
 ├────────────────────────────────────────────────────────────┤
 │                                                            │
-│  GPIO1  [SDA]     ←→  I2C Data (3.3V, via level shifter)  │
-│  GPIO2  [SCL]     →   I2C Clock (3.3V, via level shifter) │
-│  GPIO3  [BCK]     →   I2S Bit Clock                       │
-│  GPIO4  [WS]      →   I2S Word Select                     │
-│  GPIO5  [DATA]    ←   I2S Data In (from BT module)        │
+│  📡 I2C                                                    │
+│  GPIO1  [SDA]     ↔   I2C Data (3.3V side)                │
+│  GPIO2  [SCL]     →   I2C Clock (3.3V side)               │
 │                                                            │
-│  GPIO6  [ADC]     ←   Battery voltage (divided)           │
-│  GPIO7  [ADC]     ←   NTC temperature sensor              │
-│  GPIO8  [IN]      ←   Power Fail Detection [V1.10]        │
+│  🎵 I2S                                                    │
+│  GPIO3  [BCK]     →   Bit Clock                           │
+│  GPIO4  [WS]      →   Word Select                         │
+│  GPIO5  [DATA]    ←   Data In (from BT module)            │
 │                                                            │
+│  📊 ADC                                                    │
+│  GPIO6  [VBAT]    ←   Battery voltage (divided)           │
+│  GPIO7  [NTC]     ←   Temperature sensor                  │
+│  GPIO8  [PFAIL]   ←   Power Fail Detection [V1.10]        │
+│                                                            │
+│  🎛️ User Interface                                         │
 │  GPIO18 [ENC_A]   ←   Encoder A (pull-up)                 │
 │  GPIO19 [ENC_B]   ←   Encoder B (pull-up)                 │
 │  GPIO20 [ENC_SW]  ←   Encoder Switch (pull-up)            │
 │  GPIO21 [IR]      ←   IR Receiver                         │
 │                                                            │
+│  🔊 Amplifier Control                                      │
 │  GPIO38 [AMP_EN]  →   MA12070 Enable                      │
 │  GPIO39 [MUTE]    →   MA12070 Mute                        │
 │  GPIO40 [ERR]     ←   MA12070 Error                       │
@@ -49,127 +63,81 @@ Documentation technique du firmware ESP32-S3 pour l'Ampli Audiophile Portable.
 └────────────────────────────────────────────────────────────┘
 ```
 
-## I2C Architecture [V1.10]
+---
 
-### Probleme Resolu
+## 🔌 I2C Architecture [V1.10]
 
-```
-TDA7439 specifications:
-  Vcc min = 7V, Vcc typ = 9V
-  V_IH = 0.7 x Vcc = 6.3V @ 9V
-
-ESP32 output:
-  V_OH = 3.3V
-
-Probleme: 3.3V < 6.3V --> TDA7439 ne voit jamais HIGH!
-```
-
-### Solution: BSS138 Level Shifter
+### ❌ The Problem
 
 ```
-          3.3V                              9V
-           |                                 |
-          [10k]                            [10k]
-           |                                 |
-SDA_3V3 ---+----[Source]   [Drain]----+--- SDA_9V
-           |        |       |         |
-           |       BSS138   |         |
-           |        |       |         |
-           +------[Gate]----+         |
-           |                          |
-          3.3V                        |
-                                      |
-                              To TDA7439/MA12070
+TDA7439 @ 9V:  V_IH (min HIGH) = 0.7 × 9V = 6.3V
+ESP32 output:  V_OH (max HIGH) = 3.3V
+
+⚠️ 3.3V < 6.3V → TDA7439 NEVER recognizes HIGH!
+                → I2C completely broken!
 ```
 
-**Fonctionnement:**
+### ✅ BSS138 Level Shifter
+
 ```c
-// ESP32 envoie LOW (0V):
+// ESP32 sends LOW (0V):
 // V_GS = 3.3V - 0V = 3.3V > V_th (1.5V)
-// BSS138 ON --> SDA_9V = GND (via Rds_on)
+// BSS138 ON → SDA_9V = GND ✅
 
-// ESP32 envoie HIGH (3.3V) ou INPUT:
+// ESP32 sends HIGH (3.3V) or INPUT:
 // V_GS = 3.3V - 3.3V = 0V < V_th
-// BSS138 OFF --> SDA_9V = 9V (via pull-up)
+// BSS138 OFF → SDA_9V = 9V (via pull-up) ✅
 
-// TDA7439 tire LOW:
-// Body diode BSS138 conduit
-// SDA_3V3 = ~0.7V --> ESP32 voit LOW
+// TDA7439 pulls LOW:
+// Body diode conducts
+// SDA_3V3 = ~0.7V → ESP32 sees LOW ✅
 ```
 
-### Adresses I2C
+### 📋 I2C Addresses
 
-| Device | Address | Domain | Pull-up |
-|--------|---------|--------|---------|
-| OLED SSD1306 | 0x3C | 3.3V | 10k to 3V3 |
-| TDA7439 | 0x44 | 9V | 10k to 9V |
-| MA12070 | 0x20 | 9V | Via ribbon |
+| Device | Address | Voltage Domain | Pull-up |
+|--------|---------|----------------|---------|
+| 📺 OLED SSD1306 | 0x3C | 3.3V | 10kΩ to 3V3 |
+| 🎚️ TDA7439 | 0x44 | 9V | 10kΩ to 9V |
+| 🔊 MA12070 | 0x20 | 9V | Via ribbon |
 
-### I2C Recovery [V1.9]
+---
 
-```c
-// CORRECT - Open-drain conforme
-void i2cRecovery(void) {
-    pinMode(SDA, INPUT);       // High-Z, pull-up tire HIGH
-    pinMode(SCL, OUTPUT);
-    
-    for (int i = 0; i < 9; i++) {
-        digitalWrite(SCL, HIGH);
-        delayMicroseconds(5);
-        if (digitalRead(SDA) == HIGH) break;
-        digitalWrite(SCL, LOW);
-        delayMicroseconds(5);
-    }
-    
-    // STOP condition
-    pinMode(SDA, OUTPUT);
-    digitalWrite(SDA, LOW);
-    delayMicroseconds(5);
-    digitalWrite(SCL, HIGH);
-    delayMicroseconds(5);
-    pinMode(SDA, INPUT);       // Release SDA
-}
+## 🔇 Anti-Plop Shutdown Sequence [V1.10]
 
-// FAUX - Court-circuit si slave tire LOW!
-// pinMode(SDA, OUTPUT);
-// digitalWrite(SDA, HIGH);  // DANGER!
-```
-
-## Sequence Extinction Anti-Plop [V1.10]
-
-### Probleme
+### ❌ The Problem
 
 ```
-Extinction brutale:
-1. Relay coupe +22V
-2. Rails s'effondrent de facon asynchrone
-3. MA12070 perd alimentation
-4. Sorties transitent vers masse
-5. Courant DC dans HP --> PLOP!
+Brutal power-off:
+1. Relay cuts +22V
+2. Rails collapse asynchronously
+3. MA12070 loses power
+4. Outputs transition to ground
+5. DC current into speakers → PLOP! 💀
 ```
 
-### Solution
+### ✅ The Fix
 
 ```c
 void startShutdownSequence(void) {
-    // Etape 1: MUTE immediat (coupe audio)
+    // Step 1: MUTE immediately (cuts audio)
     digitalWrite(PIN_AMP_MUTE, HIGH);
     delay(50);
     
-    // Etape 2: Disable ampli (sorties haute-Z)
+    // Step 2: Disable amp (outputs go high-Z)
     digitalWrite(PIN_AMP_EN, LOW);
     delay(100);
     
-    // Etape 3: Couper relay
+    // Step 3: Cut relay
     digitalWrite(PIN_SAFE_EN, LOW);
 }
 ```
 
-### Timing Diagram
+### 📊 Timing Diagram
 
 ```
           T=0      T=50ms    T=150ms
-           |         |          |
+           │         │          │
 AMP_MUTE   ┌─────────────────────────
            │
            └─────────┐
@@ -185,68 +153,72 @@ HP_OUT     ~~~~~~~~~~│~~~~~~~~~~│~~~~~~~~~────────
            (audio)   (silence)  (silence)  (off)
 ```
 
-### Power Fail ISR
+### ⚡ Power Fail ISR [V1.10]
 
 ```c
-// Detection coupure alimentation (GPIO8)
-// Active MUTE avant effondrement rails
+// GPIO8 detects power loss
+// Triggers MUTE BEFORE rails collapse
 void IRAM_ATTR powerFailISR(void) {
     powerFailDetected = true;
-    digitalWrite(PIN_AMP_MUTE, HIGH);  // GPIO direct, pas I2C!
+    digitalWrite(PIN_AMP_MUTE, HIGH);  // Direct GPIO, no I2C!
 }
 ```
 
-## State Machine
+---
+
+## 🔄 State Machine
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        AMP STATES                               │
+│                      🎵 AMP STATES                              │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│    ┌─────┐  startup()   ┌──────────┐  run ok   ┌─────────┐    │
-│    │ OFF │────────────->│ STARTING │─────────->│ RUNNING │    │
+│    ┌─────┐  startup()   ┌──────────┐  init ok  ┌─────────┐    │
+│    │ OFF │─────────────▶│ STARTING │──────────▶│ RUNNING │    │
 │    └─────┘              └──────────┘           └────┬────┘    │
-│       ^                                             │          │
+│       ▲                                             │          │
 │       │                                    temp>50  │          │
-│       │                                             v          │
+│       │                                             ▼          │
 │       │                              ┌─────────────────────┐   │
-│       │                              │  THERMAL_WARNING    │   │
-│       │                              │  (volume -20%)      │   │
+│       │                              │ 🌡️ THERMAL_WARNING  │   │
+│       │                              │   (volume -20%)     │   │
 │       │                              └──────────┬──────────┘   │
 │       │                                         │ temp>65     │
-│       │                                         v              │
+│       │                                         ▼              │
 │       │                              ┌─────────────────────┐   │
-│       │                              │  THERMAL_CRITICAL   │   │
-│       │                              │  (volume -50%)      │   │
+│       │                              │ 🔥 THERMAL_CRITICAL │   │
+│       │                              │   (volume -50%)     │   │
 │       │                              └──────────┬──────────┘   │
 │       │                                         │ temp>75     │
 │       │ shutdown()                              │ OR button   │
-│       │                                         v              │
+│       │                                         ▼              │
 │       │                              ┌─────────────────────┐   │
-│       └──────────────────────────────│     SHUTDOWN        │   │
-│                                      │ MUTE->EN->RELAY     │   │
+│       └──────────────────────────────│ 🔇 SHUTDOWN         │   │
+│                                      │ MUTE→EN→RELAY       │   │
 │                                      └─────────────────────┘   │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Thermal Protection
+---
 
-### NTC Calculation (10k B3950)
+## 🌡️ NTC Temperature Reading
+
+### 📐 Calculation (10kΩ B3950)
 
 ```c
 float readTemperature(void) {
     uint16_t adc = medianFilter(adcNtcBuffer, 5);
     float voltage = adc * 3.3f / 4095.0f;
     
-    // Protection division par zero
-    if (voltage < 0.1f) return TEMP_FAIL_HIGH;  // Court-circuit
-    if (voltage > 3.2f) return TEMP_FAIL_LOW;   // Deconnecte
+    // 🛡️ Fail-safe checks
+    if (voltage < 0.1f) return TEMP_FAIL_HIGH;  // Short circuit
+    if (voltage > 3.2f) return TEMP_FAIL_LOW;   // Disconnected
     
-    // Resistance NTC
+    // NTC resistance
     float R_ntc = 10000.0f * voltage / (3.3f - voltage);
     
-    // Steinhart-Hart (Beta simplifiee)
+    // Steinhart-Hart (Beta simplified)
     float steinhart = R_ntc / 10000.0f;
     steinhart = log(steinhart);
     steinhart /= 3950.0f;
@@ -258,25 +230,28 @@ float readTemperature(void) {
 }
 ```
 
-### Fail-Safe [V1.9]
+### 🛡️ Fail-Safe Mode [V1.9]
 
 ```c
-// Si NTC defaillant: volume limite a 50%
+// If NTC fails: volume capped at 50%
 if (tempStatus.isFailed && volume > VOLUME_FAILSAFE) {
     volume = VOLUME_FAILSAFE;
-    Serial.println("NTC HS - Volume limite 50%");
+    Serial.println("⚠️ NTC FAILED - Volume limited to 50%");
 }
 ```
 
-## Median Filter [V1.9]
+---
+
+## 📊 Median Filter [V1.9]
+
+Rejects ADC spikes (EMI noise):
 
 ```c
-// Rejette les spikes ADC (bruit EMI)
 uint16_t medianFilter(uint16_t* buffer, uint8_t size) {
     uint16_t sorted[5];
     memcpy(sorted, buffer, size * sizeof(uint16_t));
     
-    // Bubble sort (petit tableau)
+    // Bubble sort (small array)
     for (uint8_t i = 0; i < size - 1; i++) {
         for (uint8_t j = 0; j < size - i - 1; j++) {
             if (sorted[j] > sorted[j + 1]) {
@@ -287,11 +262,13 @@ uint16_t medianFilter(uint16_t* buffer, uint8_t size) {
         }
     }
     
-    return sorted[size / 2];  // Valeur mediane
+    return sorted[size / 2];  // Median value
 }
 ```
 
-## Encoder with Critical Section [V1.9]
+---
+
+## 🎛️ Encoder with Critical Section [V1.9]
 
 ```c
 portMUX_TYPE encoderMux = portMUX_INITIALIZER_UNLOCKED;
@@ -319,7 +296,46 @@ int32_t readEncoderDelta(void) {
 }
 ```
 
-## TDA7439 Registers
+---
+
+## 🔌 I2C Recovery [V1.9]
+
+### ✅ Correct (Open-Drain Compliant)
+
+```c
+void i2cRecovery(void) {
+    pinMode(SDA, INPUT);       // High-Z, pull-up pulls HIGH
+    pinMode(SCL, OUTPUT);
+    
+    for (int i = 0; i < 9; i++) {
+        digitalWrite(SCL, HIGH);
+        delayMicroseconds(5);
+        if (digitalRead(SDA) == HIGH) break;  // Slave released
+        digitalWrite(SCL, LOW);
+        delayMicroseconds(5);
+    }
+    
+    // STOP condition
+    pinMode(SDA, OUTPUT);
+    digitalWrite(SDA, LOW);
+    delayMicroseconds(5);
+    digitalWrite(SCL, HIGH);
+    delayMicroseconds(5);
+    pinMode(SDA, INPUT);       // Release SDA
+}
+```
+
+### ❌ WRONG (Short Circuit Risk!)
+
+```c
+// NEVER DO THIS:
+pinMode(SDA, OUTPUT);
+digitalWrite(SDA, HIGH);  // 💀 If slave pulls LOW = short circuit!
+```
+
+---
+
+## 🎚️ TDA7439 Registers
 
 | Addr | Register | Range | Function |
 |------|----------|-------|----------|
@@ -332,52 +348,58 @@ int32_t readEncoderDelta(void) {
 | 0x06 | L Speaker | 0x00-0x78 | Attenuation |
 | 0x07 | R Speaker | 0x00-0x78 | Attenuation |
 
-## Watchdog
+---
+
+## 🐕 Watchdog
 
 ```c
-// Reset watchdog dans loop()
+// Reset watchdog in loop()
 void loop() {
     esp_task_wdt_reset();
     
-    // ... traitement ...
+    // ... processing ...
     
     delay(10);
 }
 
 // Configuration (setup)
-esp_task_wdt_init(5, true);  // 5 secondes, panic si expire
-esp_task_wdt_add(NULL);      // Ajouter tache courante
+esp_task_wdt_init(5, true);  // 5 seconds, panic if expired
+esp_task_wdt_add(NULL);      // Add current task
 ```
 
-## Serial Debug Output
+---
+
+## 🖥️ Serial Debug Output
 
 ```
-=== AMPLI AUDIOPHILE V1.10 ===
-Corrections: Level Shifter I2C, Anti-Plop, Molex
+=== 🎵 AMPLI AUDIOPHILE V1.10 ===
+Fixes: I2C Level Shifter, Anti-Plop, Molex
 
-GPIO: Initialise
-I2C: Scan bus...
-I2C: OLED trouve @ 0x3C
-I2C: TDA7439 trouve @ 0x44
-I2C: MA12070 trouve @ 0x20
-TDA7439: Initialise
-MA12070: Initialise
-Relay: Active
-Startup: Complete
+GPIO: Initialized
+I2C: Scanning bus...
+I2C: OLED found @ 0x3C ✅
+I2C: TDA7439 found @ 0x44 ✅
+I2C: MA12070 found @ 0x20 ✅
+TDA7439: Initialized
+MA12070: Initialized
+Relay: Activated
+Startup: Complete ✅
 
-Temp: 28.5C
-Batt: 22.1V
-Volume: 45
+🌡️ Temp: 28.5°C
+🔋 Batt: 22.1V
+🔊 Volume: 45
 
 [Button press]
-Shutdown: Debut sequence...
-Shutdown: MUTE active
-Shutdown: Ampli desactive
-Shutdown: Relay coupe
-Shutdown: Complete
+Shutdown: Starting sequence...
+Shutdown: MUTE activated
+Shutdown: Amp disabled
+Shutdown: Relay cut
+Shutdown: Complete ✅
 ```
 
-## Build Configuration
+---
+
+## 🔧 Build Configuration
 
 ```ini
 [env:esp32s3]
@@ -392,22 +414,38 @@ build_flags =
     -DARDUINO_USB_MODE=1
 ```
 
-## Changelog V1.10
+### 📚 Required Libraries
 
-| Fix | Description |
-|-----|-------------|
-| [A1] | Sequence extinction MUTE->EN->RELAY |
-| [A2] | ISR POWER_FAIL pour MUTE immediat |
-| [A3] | Timeout I2C augmente (50ms) pour level shifter |
-| [A4] | GPIO8 pour detection coupure |
+| Library | Version | Purpose |
+|---------|---------|---------|
+| Adafruit_GFX | 1.11+ | Graphics core |
+| Adafruit_SSD1306 | 2.5+ | OLED driver |
+| IRremoteESP8266 | 2.8+ | IR remote |
 
-## Changelog V1.9
+---
 
-| Fix | Description |
-|-----|-------------|
-| [S1] | I2C recovery open-drain (INPUT pas OUTPUT+HIGH) |
-| [D1] | NTC fail-safe: volume 50% max si capteur HS |
-| [D2] | Flag i2cHardwareFault |
-| [P0] | Filtre median ADC (5 samples) |
-| [P1] | Sections critiques encoder (portMUX) |
-| [P2] | Compteur erreurs I2C |
+## 📝 Changelog
+
+### V1.10
+
+| Tag | Fix |
+|-----|-----|
+| [A1] | 🔇 Shutdown sequence MUTE→EN→RELAY |
+| [A2] | ⚡ ISR POWER_FAIL for instant MUTE |
+| [A3] | ⏱️ I2C timeout increased (50ms) for level shifter |
+| [A4] | 📍 GPIO8 for power loss detection |
+
+### V1.9
+
+| Tag | Fix |
+|-----|-----|
+| [S1] | 🔌 I2C recovery open-drain (INPUT not OUTPUT+HIGH) |
+| [D1] | 🛡️ NTC fail-safe: 50% max volume if sensor dead |
+| [D2] | 🚩 Flag i2cHardwareFault |
+| [P0] | 📊 ADC median filter (5 samples) |
+| [P1] | 🔒 Encoder critical sections (portMUX) |
+| [P2] | 📈 I2C error counter |
+
+---
+
+**💻 Happy coding!**
