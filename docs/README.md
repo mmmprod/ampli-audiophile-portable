@@ -1,387 +1,359 @@
-# HARDWARE - AMPLIFICATEUR AUDIOPHILE
-
-## Informations
-
-| Parametre | Valeur |
-|-----------|--------|
-| Version | 1.9 |
-| Date | 14 decembre 2025 |
-| PCB | 2 cartes (puissance + signal) |
-
-## Specifications Electriques
-
-| Parametre | Valeur |
-|-----------|--------|
-| Alimentation | LiPo 6S 18-25.2V |
-| Puissance sortie | 2 x 20W RMS @ 8 ohms |
-| Impedance charge | 4-8 ohms |
-| Consommation repos | < 50mA |
-| Consommation max | 3A |
-
-## Architecture Dual-PCB
-
-```
-CARTE 2 - SIGNAL (80 x 120 mm)
-+----------------------------------------------------------+
-|                                                          |
-|  [ESP32-S3]  [BTM525]  [PCM5102A]  [TDA7439]  [OPA2134]  |
-|     MCU        BT        DAC         EQ       Buffer     |
-|                                                          |
-+------------------------------+---------------------------+
-                               |
-                         Nappe 16 pins
-                    [PTC1 750mA] [PTC2 500mA]
-                               |
-+------------------------------+---------------------------+
-|                                                          |
-|  [BMS 6S]  [Securite]  [Alims]  [MA12070]  [Sorties HP] |
-|    20A     5 niveaux   5V/3V3   Class-D     Borniers    |
-|                        9V/12V                            |
-+----------------------------------------------------------+
-CARTE 1 - PUISSANCE (80 x 100 mm)
-```
-
-## CARTE 1 - Puissance
-
-### C1-A : BMS 6S
-
-**Composant:** JBD SP22S003B (6S 20A)
-
-```
-Pack B- --> BMS B- (fil bleu)
-Pack B1-B6 --> BMS Balance (JST XH-7P)
-BMS C- --> GND commun (fil noir)
-BMS P+ --> +BATT_PROT (fil rouge)
-NTC 10k --> BMS T (JST PH-2P)
-```
-
-### C1-B : Securite 5 Niveaux
-
-```
-+PACK --> [N1 BMS] --> [N2 TCO] --> [N3 K1] --> [N3bis NTC] --> [N4 F1] --> [N5 D1+D2] --> +22V_RAW
-```
-
-**Niveau 1 - BMS**
-- Surcharge: 4.25V/cellule
-- Sous-decharge: 2.8V/cellule
-- Surintensite: 25A
-- Court-circuit: <100us
-
-**Niveau 2 - TCO Thermique**
-```
-+BATT_PROT --> TCO (Aupo A4-1A-F 72C 10A) --> +BATT_TCO
-```
-
-**Niveau 3 - Relais**
-```
-+BATT_TCO --> K1 NO (HF46F-G/12-HS1) --> +BATT_K1
-K1 Bobine+ --> +BATT_TCO
-K1 Bobine- --> Q1 Drain (Si2302)
-Q1 Source --> GND
-Q1 Gate --> RELAY_CTRL (via PC817)
-```
-
-**Niveau 3bis - NTC Inrush [V1.9]**
-```
-+BATT_K1 --> NTC1 (Ametherm SL10 5R005, 5ohm@25C) --> +BATT_RELAY
-```
-- Limite inrush de 500A a 5A
-- Resistance regime permanent: <0.5 ohm
-
-**Niveau 4 - Fusible**
-```
-+BATT_RELAY --> F1 (5A Fast-blow ATO) --> +BATT_FUSE
-```
-
-**Niveau 5 - Protection**
-```
-+BATT_FUSE --> D1 anode (SS54 Schottky)
-D1 cathode --> +22V_RAW
-+22V_RAW --> D2 (SMBJ24CA TVS) --> GND
-```
-
-### C1-C : Protection PVDD
-
-```
-+22V_RAW --> D3 anode (1N5822)
-D3 cathode --> +PVDD_SAFE
-```
-- Protege MA12070 (max 26V)
-- Chute 0.9V sous charge
-
-### C1-D : Alimentations
-
-**Buck 22V --> 5V**
-```
-+22V_RAW --> MP1584EN --> +5V
-Decouplage: 100uF + 10uF entree/sortie
-```
-
-**LDO 5V --> 3.3V**
-```
-+5V --> AMS1117-3.3 --> +3V3
-Decouplage: 10uF entree, 22uF + 100nF sortie
-```
-
-**Rail Audio 22V --> 12V --> 5V**
-```
-+22V_RAW --> LM7812 --> +12V_PRE
-+12V_PRE --> MCP1703A-5002 --> +5V_ANALOG
-```
-
-**Rail Buffer 9V [V1.9]**
-```
-+22V_RAW --> LM7809 --> +9V_BUFFER
-Pour OPA2134 buffer (headroom 7.5V)
-```
-
-### C1-E : Protection Nappe [V1.9]
-
-```
-+5V --> PTC1 (MF-R075 750mA) --> NAPPE_5V
-+3V3 --> PTC2 (MF-R050 500mA) --> NAPPE_3V3
-```
-- Auto-rearmable apres court-circuit
-- Protege Carte 1 si defaut Carte 2
-
-### C1-F : Amplificateur MA12070
-
-```
-+PVDD_SAFE --> C_BULK (220uF 35V) --> MA12070 PVDD
-GND (Star Ground sur C_BULK) --> MA12070 GND
-
-MA12070 OUT_L+ --> L (10uH) --> HP_L+
-MA12070 OUT_L- --> L (10uH) --> HP_L-
-MA12070 OUT_R+ --> L (10uH) --> HP_R+
-MA12070 OUT_R- --> L (10uH) --> HP_R-
-
-I2C: SDA, SCL (via nappe)
-Controle: AMP_EN, AMP_MUTE, AMP_ERR
-```
-
-## CARTE 2 - Signal
-
-### C2-A : ESP32-S3
-
-**Module:** ESP32-S3-WROOM-1-N8R8
-
-Voir README_FIRMWARE.md pour pinout complet.
-
-### C2-B : Bluetooth BTM525
-
-```
-+5V --> BTM525 VCC
-GND --> BTM525 GND
-I2S: BCK (GPIO3), WS (GPIO4), DATA (GPIO5)
-```
-
-### C2-C : DAC PCM5102A
-
-```
-+3V3 --> PCM5102A VCC
-I2S: BCK, LRCK, DIN
-FMT --> GND (I2S standard)
-XSMT --> +3V3 (soft mute off)
-OUT_L/R --> CD4053 entree
-```
-
-### C2-D : Preampli Phono RIAA
-
-**OPA2134 + reseau RIAA**
-
-```
-PHONO_IN --> C (100nF film) --> OPA2134 IN+
-OPA2134 configurer en ampli RIAA
-Gain: ~40dB @ 1kHz
-```
-
-**Reseau RIAA:**
-```
-R1 = 750 ohm, C1 = 3.3nF (pole 2122Hz)
-R2 = 75k (zero 50Hz)
-C2 = 100pF (pole 21.2kHz)
-```
-
-**Masse virtuelle [V1.9]:**
-```
-+5V_ANALOG --> R (10k) --> VREF
-VREF --> R (10k) --> GND
-VREF --> C_REF (10uF film) --> GND
-```
-
-### C2-E : Selecteur CD4053
-
-```
-+5V_ANALOG --> CD4053 VCC
-GPIO41 --> A, B, C (selection)
-
-X0/Y0: DAC (Bluetooth)
-X1/Y1: AUX
-X2/Y2: PHONO
-X/Y OUT --> TDA7439 IN
-```
-
-### C2-F : Processeur TDA7439
-
-```
-+5V_ANALOG --> TDA7439 VCC (pin 18)
-I2C: SDA (pin 21), SCL (pin 20)
-Adresse: 0x44
-```
-
-**Condensateurs EQ:**
-| Bande | Pins | Valeur | fc |
-|-------|------|--------|-----|
-| Bass | 4,25 | 100nF | 159Hz |
-| Mid | 5,24 | 22nF | 723Hz |
-| Treble | 6,23 | 5.6nF | 2.8kHz |
-
-### C2-G : Buffer OPA2134 [V1.9]
-
-```
-TDA7439 OUT --> R (10k) --> OPA2134 IN+
-OPA2134 IN- --> OUT (suiveur)
-OPA2134 OUT --> C (2.2uF film) --> AUDIO nappe
-
-Alimentation: +9V_BUFFER (headroom 7.5V)
-```
-
-### C2-H : Interface Utilisateur
-
-**OLED 0.96" I2C**
-```
-+3V3 --> VCC
-SDA, SCL
-Adresse: 0x3C
-```
-
-**Encodeur Rotatif**
-```
-GPIO18 --> A (pull-up interne)
-GPIO19 --> B (pull-up interne)
-GPIO20 --> SW
-```
-
-### C2-I : Monitoring ADC
-
-**Batterie**
-```
-+22V_RAW --> R (220k 1%) --> ADC_BATT
-ADC_BATT --> R (33k 1%) --> GND
-ADC_BATT --> C (100nF) --> GND
-```
-
-**Temperature NTC**
-```
-+3V3 --> R (10k) --> ADC_NTC
-ADC_NTC --> NTC (10k@25C) --> GND
-```
-
-## Nappe Inter-cartes
-
-**Connecteur:** JST XH 16 pins, 100mm AWG24
-
-| Pin | Signal | Dir | Note |
-|-----|--------|-----|------|
-| 1 | 22V_SENSE | C1->C2 | Via diviseur |
-| 2 | +5V | C1->C2 | Via PTC1 |
-| 3 | +3V3 | C1->C2 | Via PTC2 |
-| 4-6 | GND | - | PWR/SIG/Shield |
-| 7 | AUDIO_L | C2->C1 | Blindage pin 8 |
-| 9 | AUDIO_R | C2->C1 | Blindage pin 10 |
-| 11 | SDA | <-> | I2C |
-| 12 | SCL | C2->C1 | I2C |
-| 13 | AMP_EN | C2->C1 | |
-| 14 | AMP_MUTE | C2->C1 | |
-| 15 | AMP_ERR | C1->C2 | |
-| 16 | SAFE_EN | C2->C1 | |
-
-## BOM Principale
-
-### Semiconducteurs
-
-| Ref | Composant | Package | Qte |
-|-----|-----------|---------|-----|
-| U1 | MA12070 | QFN-48 | 1 |
-| U2 | OPA2134PA | DIP-8 | 2 |
-| U3 | TDA7439 | DIP-30 | 1 |
-| U4 | CD4053BE | DIP-16 | 1 |
-| U5 | AMS1117-3.3 | SOT-223 | 1 |
-| U6 | LM7812 | TO-220 | 1 |
-| U7 | MCP1703A-5002 | TO-92 | 1 |
-| U8 | LM7809 | TO-220 | 1 |
-| D1 | SS54 | SMA | 1 |
-| D2 | SMBJ24CA | SMB | 1 |
-| D3 | 1N5822 | DO-201AD | 1 |
-
-### Protections V1.9
-
-| Ref | Composant | Valeur | Qte |
-|-----|-----------|--------|-----|
-| PTC1 | MF-R075 | 750mA | 1 |
-| PTC2 | MF-R050 | 500mA | 1 |
-| NTC1 | SL10 5R005 | 5ohm | 1 |
-
-### Modules
-
-| Module | Qte |
-|--------|-----|
-| ESP32-S3-WROOM-1-N8R8 | 1 |
-| BTM525 | 1 |
-| PCM5102A | 1 |
-| MP1584EN buck | 1 |
-| JBD BMS 6S 20A | 1 |
-| OLED 0.96" I2C | 1 |
-
-## Regles PCB
-
-### Carte 1 (Puissance)
-
-- Star Ground sur C_BULK (220uF)
-- Pistes puissance: 2mm minimum
-- Dissipateur MA12070 via PCB
-- Distance securite HT: 3mm
-
-### Carte 2 (Signal)
-
-- Plan de masse continu
-- Separation analogique/numerique
-- Traces audio blindees GND
-- Decouplage 100nF chaque CI
-
-### Thermique
-
-| Composant | P_max | Dissipateur |
-|-----------|-------|-------------|
-| MA12070 | 2W | PCB copper pour |
-| LM7812 | 0.3W | TO-220 nu OK |
-| LM7809 | 0.2W | TO-220 nu OK |
-
-## Tests
-
-Voir Breakout_Box_Test_V1_2.md pour:
-- Procedure de test complete
-- Points de mesure
-- Valeurs attendues
-- Avertissement boucle de masse
-
-## Fichiers
-
-```
-Ampli_Audiophile_Portable_V1_9.md   # Specs detaillees
-Breakout_Box_Test_V1_2.md          # Outil de test
-```
-
-## Changelog Hardware
-
-| Version | Modifications |
-|---------|---------------|
-| V1.9 | PTC nappe, NTC inrush, Buffer 9V, C_REF |
-| V1.8 | NTC monitoring |
-| V1.7 | LM7812 pre-regulator |
-| V1.6 | Star Ground |
-| V1.5 | TVS, nappe blindee |
+# Hardware
+
+<p>
+  <img src="https://img.shields.io/badge/PCB-Dual_Board-purple?style=flat-square" />
+  <img src="https://img.shields.io/badge/Amp-MA12070_Class--D-red?style=flat-square" />
+  <img src="https://img.shields.io/badge/Battery-6S_LiPo-yellow?style=flat-square" />
+  <img src="https://img.shields.io/badge/Protection-5_Levels-green?style=flat-square" />
+</p>
+
+Dual-PCB design separating power and signal paths. Star grounding, proper decoupling, shielded interconnects.
 
 ---
 
-*Schema concu pour montage DIY sur veroboard ou PCB custom*
+## PCB Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     CARD 2 - SIGNAL                             │
+│                     80 x 120 mm                                 │
+│                                                                 │
+│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌───────┐ │
+│  │ ESP32-S3│  │ BTM525  │  │PCM5102A │  │ TDA7439 │  │OPA2134│ │
+│  │   MCU   │  │BT LDAC  │  │  DAC    │  │   EQ    │  │Buffer │ │
+│  └─────────┘  └─────────┘  └─────────┘  └─────────┘  └───────┘ │
+│                                                                 │
+│  ┌─────────┐  ┌─────────┐  ┌──────────────────────────────────┐ │
+│  │ CD4053  │  │ OPA2134 │  │  OLED  │  Encoder  │  IR RX     │ │
+│  │  MUX    │  │  RIAA   │  │ 128x64 │   + SW    │  TSOP4838  │ │
+│  └─────────┘  └─────────┘  └──────────────────────────────────┘ │
+│                                                                 │
+└─────────────────────────────┬───────────────────────────────────┘
+                              │
+                        JST XH-16
+                     100mm ribbon AWG24
+                   (shielded, PTC protected)
+                              │
+┌─────────────────────────────┴───────────────────────────────────┐
+│                     CARD 1 - POWER                              │
+│                     80 x 100 mm                                 │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │  BMS   │  TCO  │  RELAY  │  NTC   │  FUSE  │  D1   │ D2 │   │
+│  │JBD 6S  │ 72C   │  HF46F  │ 5ohm   │  5A    │ SS54  │TVS │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
+│  │  LM7812  │  │  LM7809  │  │  MP1584  │  │ AMS1117  │        │
+│  │   +12V   │  │   +9V    │  │   +5V    │  │  +3V3    │        │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                       MA12070                           │   │
+│  │                      Class-D                            │   │
+│  │                   2 x 20W @ 8ohm                        │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  [ HP L+ ]  [ HP L- ]  [ HP R+ ]  [ HP R- ]   Screw terminals  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Protection Chain
+
+Each level is independent. If one fails, the next catches it.
+
+```
+         N1              N2              N3            N3bis           N4              N5
+     ┌────────┐      ┌────────┐      ┌────────┐      ┌────────┐      ┌────────┐      ┌────────┐
+     │  BMS   │      │  TCO   │      │ RELAY  │      │  NTC   │      │ FUSE   │      │  TVS   │
+PACK─┤JBD 6S  ├──────┤ 72C    ├──────┤ HF46F  ├──────┤ 5 ohm  ├──────┤  5A    ├──────┤SMBJ24CA├──> +22V
+     │ 20A    │      │ 10A    │      │  NO    │      │inrush  │      │fast-bl │      │ 24V    │
+     └────────┘      └────────┘      └────────┘      └────────┘      └────────┘      └────────┘
+         │               │               │               │               │               │
+         v               v               v               v               v               v
+     Cell V/I        PCB temp        Software       500A → 5A        Overcurr.       Surge
+     Balance         > 72C           SAFE_EN        limiting         > 5A            > 24V
+     Temp prot      (auto-reset)    (opto-iso)    (auto-reset)      (replace)       (clamp)
+```
+
+### N1 - BMS
+
+```
+Pack B-  ───────────────────────────> BMS B- (blue wire)
+Pack B1 ─┐
+Pack B2 ─┤
+Pack B3 ─┼─ JST XH-7P ──────────────> BMS Balance
+Pack B4 ─┤
+Pack B5 ─┤
+Pack B6 ─┘
+NTC 10k ─── JST PH-2P ──────────────> BMS T
+
+BMS C- (black) ─────────────────────> System GND
+BMS P+ (red) ───────────────────────> +BATT_PROT
+```
+
+Thresholds: OVP 4.25V/cell, UVP 2.8V/cell, OCP 25A, SCP <100us, OTP 60C
+
+### N3 - Relay Driver (Opto-isolated)
+
+```
++3V3 ──── R (1k) ──── PC817 LED+ 
+                          │
+GPIO42 (SAFE_EN) ─────────┘ LED-
+
+PC817 Collector ──── R (10k) ──── +BATT_TCO
+         │
+         └─── RELAY_CTRL ──── R (10k) ──── GND
+                   │
+                   └─── Si2302 Gate
+
+Si2302 Drain ──── K1 Coil-
+Si2302 Source ─── GND
++BATT_TCO ─────── K1 Coil+
+```
+
+### N3bis - NTC Inrush Limiter (V1.9)
+
+```
+Problem: C_BULK (220uF) charging → I_peak = V/ESR = 25V/0.05Ω = 500A!
+
+Solution: NTC thermistor in series
+          - Cold: 5 ohm → I_peak = 25V/5Ω = 5A
+          - Hot:  0.5 ohm → minimal loss
+
+Component: Ametherm SL10 5R005
+           5 ohm @ 25C
+           Max 5A continuous
+           Warm-up time ~200ms
+```
+
+---
+
+## Power Rails
+
+```
++BATT (18-25.2V)
+    │
+    └──> [Protection Chain] ──> +22V_RAW
+                                    │
+                    ┌───────────────┼───────────────┬───────────────┐
+                    │               │               │               │
+                    v               v               v               v
+               ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐
+               │ LM7812  │    │ LM7809  │    │ MP1584  │    │ 1N5822  │
+               │ TO-220  │    │ TO-220  │    │  Buck   │    │  D3     │
+               └────┬────┘    └────┬────┘    └────┬────┘    └────┬────┘
+                    │              │              │              │
+                    v              v              v              v
+                +12V_PRE       +9V_BUFFER      +5V          +PVDD_SAFE
+                    │              │              │          (MA12070)
+                    v              │              v
+               ┌─────────┐         │         ┌─────────┐
+               │MCP1703A │         │         │AMS1117  │
+               │ LDO 5V  │         │         │LDO 3V3  │
+               └────┬────┘         │         └────┬────┘
+                    │              │              │
+                    v              v              v
+               +5V_ANALOG     +9V_BUFFER       +3V3
+              (RIAA, TDA)    (OPA2134 buf)   (ESP32, logic)
+```
+
+### Why +9V Buffer? (V1.9)
+
+```
+Problem:  OPA2134 powered from +5V
+          Output swing = 5V - 1.5V = 3.5V peak
+          TDA7439 output = 2Vrms = 2.83V peak
+          Headroom = 3.5 - 2.83 = 0.67V → CLIPPING RISK!
+
+Solution: LM7809 → +9V_BUFFER
+          Output swing = 9V - 1.5V = 7.5V peak
+          Headroom = 7.5 - 2.83 = 4.67V → Safe
+```
+
+---
+
+## Ribbon Cable
+
+16-pin JST XH, 100mm, AWG24, shielded.
+
+```
+Pin  Signal       Direction   Note
+───────────────────────────────────────────────
+1    22V_SENSE    C1 → C2     Via divider 220k/33k
+2    +5V          C1 → C2     Through PTC1 (750mA)
+3    +3V3         C1 → C2     Through PTC2 (500mA)
+4    GND_PWR      —           Power ground
+5    GND_SIG      —           Signal ground
+6    GND_SHIELD   —           Cable shield
+7    AUDIO_L      C2 → C1     Left channel
+8    GND_SHIELD   —           Shield between L/R
+9    AUDIO_R      C2 → C1     Right channel
+10   GND_SHIELD   —           Shield after R
+11   SDA          ↔           I2C data
+12   SCL          C2 → C1     I2C clock
+13   AMP_EN       C2 → C1     Amplifier enable
+14   AMP_MUTE     C2 → C1     Mute control
+15   AMP_ERR      C1 → C2     Error flag
+16   SAFE_EN      C2 → C1     Relay control
+```
+
+### PTC Protection (V1.9)
+
+```
++5V  ──── PTC1 (MF-R075) ──── NAPPE_5V
+          I_hold = 750mA
+          I_trip = 1.5A
+          R = 0.3 ohm
+
++3V3 ──── PTC2 (MF-R050) ──── NAPPE_3V3
+          I_hold = 500mA
+          I_trip = 1.0A
+          R = 0.5 ohm
+
+Normal load Card 2: ~230mA (ESP32 + BT + DAC + EQ + OLED)
+Trip current: Short on Card 2 → PTC opens → Card 1 protected
+Auto-resettable after cooling.
+```
+
+---
+
+## Audio Signal Path
+
+```
+                                                 ┌──────────────┐
+BTM525 I2S ──────────────────────────> PCM5102A ─┤              │
+                                          DAC    │              │
+                                                 │    CD4053    │──> TDA7439 ──> OPA2134 ──> AUDIO OUT
+AUX IN ──────────────────────────────────────────┤     MUX      │       EQ        Buffer
+  3.5mm                                          │              │
+                                                 │              │
+PHONO IN ──> OPA2134 RIAA ───────────────────────┤              │
+  RCA         Preamp                             └──────────────┘
+               40dB
+
+RIAA Network:
+R1 = 750 ohm ─── C1 = 3.3nF   (pole @ 2122Hz)
+R2 = 75k                       (zero @ 50Hz)
+C2 = 100pF // R2               (pole @ 21.2kHz)
+
+VREF = +5V_ANALOG / 2 = 2.5V
+VREF decoupling: C_REF 10uF film (V1.9)
+```
+
+---
+
+## MA12070 Class-D
+
+```
++PVDD_SAFE ──┬── C (220uF 35V electro) ──┬── MA12070 PVDD
+             │                           │
+             └── C (10uF ceramic) ───────┘
+
+MA12070 OUT_L+ ──── L (10uH) ──── HP_L+
+MA12070 OUT_L- ──── L (10uH) ──── HP_L-
+MA12070 OUT_R+ ──── L (10uH) ──── HP_R+
+MA12070 OUT_R- ──── L (10uH) ──── HP_R-
+
+I2C Address: 0x20
+Max PVDD: 26V (protected by D3 1N5822, Vf = 0.9V)
+```
+
+---
+
+## Grounding
+
+Star ground topology. All grounds meet at one point on C_BULK.
+
+```
+                         ┌─────────────────┐
+                         │     C_BULK      │
+                         │    220uF 35V    │
+                         └────────┬────────┘
+                                  │
+                    ══════════════╪══════════════  STAR POINT
+                    │      │      │      │      │
+                    v      v      v      v      v
+                  PVDD   +22V   +5V    +3V3   Signal
+                  GND    GND    GND    GND    GND
+                   │      │      │      │      │
+                   └──────┴──────┴──────┴──────┘
+                              │
+                              v
+                           CHASSIS
+```
+
+---
+
+## Thermal
+
+| Component | P_max | Rth_ja | Tj @ 40C amb | Dissipator |
+|-----------|-------|--------|--------------|------------|
+| MA12070 | 2W | 25 C/W | 90C | PCB copper pour |
+| LM7812 | 0.32W | 50 C/W | 56C | TO-220 bare OK |
+| LM7809 | 0.20W | 50 C/W | 50C | TO-220 bare OK |
+| MCP1703 | 0.18W | 180 C/W | 72C | TO-92 bare OK |
+
+---
+
+## BOM Highlights
+
+| Component | Part Number | Note |
+|-----------|-------------|------|
+| Amp IC | MA12070P | QFN-48, Class-D |
+| MCU | ESP32-S3-WROOM-1-N8R8 | 8MB Flash, 8MB PSRAM |
+| Bluetooth | BTM525 | LDAC support |
+| DAC | PCM5102A | 32-bit, 112dB SNR |
+| EQ | TDA7439 | 3-band, analog |
+| Op-Amp | OPA2134PA | Audio-grade, DIP-8 |
+| Schottky | SS54 | 40V 5A, anti-reverse |
+| TVS | SMBJ24CA | 24V bidirectional |
+| Inrush NTC | SL10 5R005 | 5 ohm @ 25C |
+| PTC | MF-R075 / MF-R050 | Ribbon protection |
+| BMS | JBD SP22S003B | 6S 20A |
+
+Full BOM: [`Ampli_Audiophile_Portable_V1_9.md`](./Ampli_Audiophile_Portable_V1_9.md)
+
+---
+
+## Layout Tips
+
+1. **Star ground** on C_BULK negative terminal
+2. **Power traces** minimum 2mm width (3A capability)
+3. **Shield audio traces** with ground pours
+4. **Separate analog/digital** ground planes, join at star
+5. **100nF ceramic** on every IC, close to VCC/GND pins
+6. **Keep I2C short** and away from power switching
+
+---
+
+## Test Jig
+
+Breakout box with banana jacks and LED indicators for all test points.
+
+See [`Breakout_Box_Test_V1_2.md`](./Breakout_Box_Test_V1_2.md)
+
+**WARNING**: Ground loop risk when testing!
+- OK: Amp on battery + scope on mains
+- DANGER: Amp on charger + scope on mains + USB
+
+---
+
+## Changelog
+
+| Version | Changes |
+|---------|---------|
+| **1.9** | PTC ribbon protection, NTC inrush, +9V buffer rail, C_REF decoupling |
+| 1.8 | NTC temperature monitoring |
+| 1.7 | LM7812 pre-regulator, 1N5822 PVDD diode |
+| 1.6 | Star ground implementation |
+| 1.5 | TVS protection, shielded ribbon |
+
+---
+
+<p align="center">
+  <sub>Designed for veroboard or custom PCB. Works on both.</sub>
+</p>
